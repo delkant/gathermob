@@ -1,7 +1,7 @@
 # File: /infra/cloudformation/sandbox-stack.yml
-# Description: CloudFormation stack for Group Ops Platform sandbox environment
+# Description: CloudFormation stack for Group Ops Platform sandbox environment with deployment hardening
 # Generated: 2025-10-28
-# PRD Reference: v0.3
+# PRD Reference: v0.4
 
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Group Ops Platform - Sandbox Environment Stack'
@@ -249,6 +249,7 @@ Resources:
           JWT_SECRET: !Ref JWTSecret
           REDIS_ENDPOINT: !GetAtt CacheCluster.RedisEndpoint.Address
           REDIS_PORT: !GetAtt CacheCluster.RedisEndpoint.Port
+          BUILD_VERSION: '0.4.0'  # Updated by CI/CD pipeline
       VpcConfig:
         SecurityGroupIds:
           - !Ref LambdaSecurityGroup
@@ -256,13 +257,14 @@ Resources:
           - !Ref PrivateSubnet1
           - !Ref PrivateSubnet2
       Code:
+        # Placeholder code - will be replaced by CI/CD pipeline using aws lambda update-function-code
         ZipFile: |
           exports.handler = async (event) => {
-            // Placeholder GraphQL handler
+            // Placeholder GraphQL handler - actual code deployed via CI/CD
             return {
               statusCode: 200,
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: 'GraphQL endpoint placeholder' })
+              body: JSON.stringify({ message: 'GraphQL endpoint - code will be deployed by CI/CD' })
             };
           };
 
@@ -298,13 +300,14 @@ Resources:
           - !Ref PrivateSubnet1
           - !Ref PrivateSubnet2
       Code:
+        # Placeholder code - will be replaced by CI/CD pipeline using aws lambda update-function-code
         ZipFile: |
           exports.handler = async (event) => {
-            // Placeholder auth handler
+            // Placeholder auth handler - actual code deployed via CI/CD
             return {
               statusCode: 200,
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: 'Auth endpoint placeholder' })
+              body: JSON.stringify({ message: 'Auth endpoint - code will be deployed by CI/CD' })
             };
           };
 
@@ -330,6 +333,13 @@ Resources:
     Properties:
       ApiId: !Ref ApiGateway
       RouteKey: 'POST /graphql'
+      Target: !Sub 'integrations/${GraphQLIntegration}'
+
+  HealthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'GET /health'
       Target: !Sub 'integrations/${GraphQLIntegration}'
 
   GraphQLPermission:

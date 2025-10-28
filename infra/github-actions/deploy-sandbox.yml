@@ -1,7 +1,7 @@
 # File: /infra/github-actions/deploy-sandbox.yml
-# Description: GitHub Actions workflow for deploying to sandbox environment
+# Description: GitHub Actions workflow for deploying to sandbox environment with deployment hardening
 # Generated: 2025-10-28
-# PRD Reference: v0.3
+# PRD Reference: v0.4
 
 name: Deploy to Sandbox
 
@@ -104,21 +104,32 @@ jobs:
         run: npm ci
 
       - name: Build TypeScript
-        run: npm run build
+        run: |
+          npm run build
+          # Verify build output
+          ls -la dist/
+
+      - name: Copy GraphQL schema
+        run: |
+          cp src/api/schema.graphql dist/api/
 
       - name: Bundle Lambda functions
         run: |
-          # Create deployment packages for each Lambda function
+          # Create deployment packages for each Lambda function from compiled JS
           mkdir -p dist/lambdas
 
-          # GraphQL Lambda
-          cd src/api
-          zip -r ../../dist/lambdas/graphql.zip . -x "*.ts" -x "*.test.*"
+          # GraphQL Lambda - package from compiled JS
+          cd dist/api
+          npm init -y
+          npm install @apollo/server @as-integrations/aws-lambda graphql mongodb
+          zip -r ../lambdas/graphql.zip . -x "*.ts" -x "*.test.*" -x "*.map"
           cd ../..
 
-          # Auth Lambda
-          cd src/auth
-          zip -r ../../dist/lambdas/auth.zip . -x "*.ts" -x "*.test.*"
+          # Auth Lambda - package from compiled JS
+          cd dist/auth
+          npm init -y
+          npm install aws-lambda mongodb
+          zip -r ../lambdas/auth.zip . -x "*.ts" -x "*.test.*" -x "*.map"
           cd ../..
 
       - name: Upload build artifacts
@@ -221,11 +232,12 @@ jobs:
 
       - name: Upload Lambda packages to S3
         run: |
-          # Create S3 bucket for Lambda deployments if it doesn't exist
-          aws s3 mb s3://group-ops-lambda-deployments-${{ env.ENVIRONMENT }} --region ${{ env.AWS_REGION }} || true
+          # Create S3 bucket for Lambda deployments with unique name
+          BUCKET_NAME="group-ops-lambda-${{ env.ENVIRONMENT }}-${{ github.repository_owner }}"
+          aws s3 mb s3://${BUCKET_NAME} --region ${{ env.AWS_REGION }} || true
 
           # Upload Lambda packages
-          aws s3 cp dist/lambdas/ s3://group-ops-lambda-deployments-${{ env.ENVIRONMENT }}/ --recursive
+          aws s3 cp dist/lambdas/ s3://${BUCKET_NAME}/ --recursive
 
       - name: Validate CloudFormation template
         run: |
@@ -259,19 +271,34 @@ jobs:
 
       - name: Update Lambda function code
         run: |
+          BUCKET_NAME="group-ops-lambda-${{ env.ENVIRONMENT }}-${{ github.repository_owner }}"
+
           # Update GraphQL Lambda
           aws lambda update-function-code \
             --function-name ${{ env.STACK_NAME }}-graphql \
-            --s3-bucket group-ops-lambda-deployments-${{ env.ENVIRONMENT }} \
+            --s3-bucket ${BUCKET_NAME} \
             --s3-key graphql.zip \
             --publish
+
+          # Wait for update to complete
+          aws lambda wait function-updated \
+            --function-name ${{ env.STACK_NAME }}-graphql
 
           # Update Auth Lambda
           aws lambda update-function-code \
             --function-name ${{ env.STACK_NAME }}-auth \
-            --s3-bucket group-ops-lambda-deployments-${{ env.ENVIRONMENT }} \
+            --s3-bucket ${BUCKET_NAME} \
             --s3-key auth.zip \
             --publish
+
+          # Wait for update to complete
+          aws lambda wait function-updated \
+            --function-name ${{ env.STACK_NAME }}-auth
+
+          # Update environment variable with build version
+          aws lambda update-function-configuration \
+            --function-name ${{ env.STACK_NAME }}-graphql \
+            --environment "Variables={BUILD_VERSION=${{ github.sha }}}"
 
   # ========================================
   # SMOKE TESTS
@@ -311,35 +338,59 @@ jobs:
             --output text)
           echo "API_URL=$API_URL" >> $GITHUB_OUTPUT
 
-      - name: Test GraphQL endpoint
+      - name: Test GraphQL health endpoint
         run: |
+          # Test the health query
           response=$(curl -s -X POST ${{ steps.get-api-url.outputs.API_URL }}/graphql \
             -H 'Content-Type: application/json' \
-            -d '{"query":"{ __typename }"}' \
+            -d '{"query":"{ health { status env timestamp version } }"}' \
             -w "\n%{http_code}")
 
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
 
           if [ "$http_code" -ne 200 ]; then
-            echo "GraphQL endpoint returned $http_code"
+            echo "❌ GraphQL health endpoint returned $http_code"
             echo "Response: $body"
             exit 1
           fi
 
+          # Check if status is "ok"
+          status=$(echo "$body" | jq -r '.data.health.status')
+          if [ "$status" != "ok" ]; then
+            echo "❌ Health check failed with status: $status"
+            echo "Response: $body"
+            exit 1
+          fi
+
+          echo "✅ GraphQL health check passed"
+          echo "Response: $body"
+
       - name: Test Auth endpoint
         run: |
+          # Test OTP request endpoint with phoneNumber
           response=$(curl -s -X POST ${{ steps.get-api-url.outputs.API_URL }}/auth/otp \
             -H 'Content-Type: application/json' \
-            -d '{"phoneOrEmail":"+1234567890"}' \
+            -d '{"phoneNumber":"+1234567890"}' \
             -w "\n%{http_code}")
 
           http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
 
           if [ "$http_code" -ne 200 ] && [ "$http_code" -ne 400 ]; then
-            echo "Auth endpoint returned unexpected status: $http_code"
+            echo "❌ Auth endpoint returned unexpected status: $http_code"
+            echo "Response: $body"
             exit 1
           fi
+
+          # Check if we got a success response
+          success=$(echo "$body" | jq -r '.success')
+          if [ "$success" == "true" ]; then
+            echo "✅ Auth OTP endpoint test passed"
+          else
+            echo "⚠️ Auth endpoint returned expected error (phone validation)"
+          fi
+          echo "Response: $body"
 
   # ========================================
   # NOTIFICATIONS
