@@ -1,0 +1,416 @@
+{
+  "name": "events_search_index",
+  "collection": "events",
+  "description": "Atlas Search index for events collection with text search and faceted filtering",
+  "generated": "2025-10-28",
+  "prdReference": "v0.3",
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      "title": {
+        "type": "string",
+        "analyzer": "lucene.standard",
+        "searchAnalyzer": "lucene.standard",
+        "multi": {
+          "keywordLowercase": {
+            "type": "string",
+            "analyzer": "lucene.keyword",
+            "searchAnalyzer": "lucene.keyword"
+          }
+        }
+      },
+      "description": {
+        "type": "string",
+        "analyzer": "lucene.standard",
+        "searchAnalyzer": "lucene.standard"
+      },
+      "organizationId": {
+        "type": "objectId"
+      },
+      "startTime": {
+        "type": "date"
+      },
+      "endTime": {
+        "type": "date"
+      },
+      "status": {
+        "type": "string",
+        "analyzer": "lucene.keyword"
+      },
+      "visibility": {
+        "type": "string",
+        "analyzer": "lucene.keyword"
+      },
+      "location": {
+        "type": "document",
+        "fields": {
+          "type": {
+            "type": "string",
+            "analyzer": "lucene.keyword"
+          },
+          "name": {
+            "type": "string",
+            "analyzer": "lucene.standard"
+          },
+          "city": {
+            "type": "string",
+            "analyzer": "lucene.keyword",
+            "multi": {
+              "text": {
+                "type": "string",
+                "analyzer": "lucene.standard"
+              }
+            }
+          },
+          "state": {
+            "type": "string",
+            "analyzer": "lucene.keyword"
+          },
+          "country": {
+            "type": "string",
+            "analyzer": "lucene.keyword"
+          },
+          "postalCode": {
+            "type": "string",
+            "analyzer": "lucene.keyword"
+          },
+          "coordinates": {
+            "type": "geo",
+            "indexShapes": true
+          }
+        }
+      },
+      "tags": {
+        "type": "string",
+        "analyzer": "lucene.keyword",
+        "multi": {
+          "text": {
+            "type": "string",
+            "analyzer": "lucene.standard"
+          }
+        }
+      },
+      "pricing": {
+        "type": "document",
+        "fields": {
+          "isFree": {
+            "type": "boolean"
+          },
+          "amount": {
+            "type": "number",
+            "representation": "double"
+          },
+          "currency": {
+            "type": "string",
+            "analyzer": "lucene.keyword"
+          },
+          "earlyBirdAmount": {
+            "type": "number",
+            "representation": "double"
+          },
+          "earlyBirdDeadline": {
+            "type": "date"
+          }
+        }
+      },
+      "maxCapacity": {
+        "type": "number",
+        "representation": "int64"
+      },
+      "currentCapacity": {
+        "type": "number",
+        "representation": "int64"
+      },
+      "waitlistEnabled": {
+        "type": "boolean"
+      },
+      "createdAt": {
+        "type": "date"
+      },
+      "updatedAt": {
+        "type": "date"
+      }
+    }
+  },
+  "analyzers": [
+    {
+      "name": "autocomplete",
+      "tokenizer": {
+        "type": "edgeGram",
+        "minGram": 2,
+        "maxGram": 15
+      },
+      "tokenFilters": [
+        {
+          "type": "lowercase"
+        }
+      ]
+    }
+  ],
+  "synonyms": [
+    {
+      "name": "event_synonyms",
+      "analyzer": "lucene.standard",
+      "source": {
+        "collection": "synonyms",
+        "field": "synonyms"
+      }
+    }
+  ],
+  "storedSource": {
+    "include": [
+      "_id",
+      "title",
+      "description",
+      "organizationId",
+      "startTime",
+      "endTime",
+      "location",
+      "status",
+      "visibility",
+      "pricing",
+      "tags",
+      "maxCapacity",
+      "currentCapacity",
+      "coverImage"
+    ]
+  },
+  "searchFacets": {
+    "facets": {
+      "organizationFacet": {
+        "type": "string",
+        "path": "organizationId",
+        "numBuckets": 20
+      },
+      "cityFacet": {
+        "type": "string",
+        "path": "location.city",
+        "numBuckets": 50
+      },
+      "stateFacet": {
+        "type": "string",
+        "path": "location.state",
+        "numBuckets": 20
+      },
+      "tagsFacet": {
+        "type": "string",
+        "path": "tags",
+        "numBuckets": 30
+      },
+      "statusFacet": {
+        "type": "string",
+        "path": "status",
+        "numBuckets": 10
+      },
+      "visibilityFacet": {
+        "type": "string",
+        "path": "visibility",
+        "numBuckets": 10
+      },
+      "priceFacet": {
+        "type": "number",
+        "path": "pricing.amount",
+        "boundaries": [0, 10, 25, 50, 100, 250, 500, 1000],
+        "default": "other"
+      },
+      "dateFacet": {
+        "type": "date",
+        "path": "startTime",
+        "boundaries": [
+          {
+            "type": "relative",
+            "value": "now"
+          },
+          {
+            "type": "relative",
+            "value": "now/d+1d"
+          },
+          {
+            "type": "relative",
+            "value": "now/d+7d"
+          },
+          {
+            "type": "relative",
+            "value": "now/d+30d"
+          },
+          {
+            "type": "relative",
+            "value": "now/d+90d"
+          }
+        ],
+        "default": "other"
+      },
+      "isFreeFacet": {
+        "type": "boolean",
+        "path": "pricing.isFree"
+      },
+      "hasAvailabilityFacet": {
+        "type": "boolean",
+        "path": "hasAvailability"
+      }
+    }
+  },
+  "scoringProfiles": [
+    {
+      "name": "relevance_boost",
+      "functions": [
+        {
+          "type": "gauss",
+          "path": "startTime",
+          "origin": "now",
+          "scale": "30d",
+          "decay": 0.5,
+          "boost": 2
+        },
+        {
+          "type": "multiply",
+          "path": "currentCapacity",
+          "factor": 0.8
+        }
+      ]
+    }
+  ],
+  "indexConfiguration": {
+    "searchIndex": true,
+    "facetIndex": true,
+    "autocompleteIndex": true,
+    "geoIndex": true
+  },
+  "exampleQueries": {
+    "textSearch": {
+      "description": "Search events by text",
+      "pipeline": [
+        {
+          "$search": {
+            "index": "events_search_index",
+            "text": {
+              "query": "yoga class",
+              "path": ["title", "description", "tags"]
+            }
+          }
+        }
+      ]
+    },
+    "facetedSearch": {
+      "description": "Search with facets",
+      "pipeline": [
+        {
+          "$searchMeta": {
+            "index": "events_search_index",
+            "facet": {
+              "facets": {
+                "cities": {
+                  "type": "string",
+                  "path": "location.city"
+                },
+                "tags": {
+                  "type": "string",
+                  "path": "tags"
+                },
+                "priceRange": {
+                  "type": "number",
+                  "path": "pricing.amount",
+                  "boundaries": [0, 25, 50, 100, 500]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "geoNearSearch": {
+      "description": "Search events near location",
+      "pipeline": [
+        {
+          "$search": {
+            "index": "events_search_index",
+            "geoWithin": {
+              "circle": {
+                "center": {
+                  "type": "Point",
+                  "coordinates": [-73.98, 40.75]
+                },
+                "radius": 5000
+              },
+              "path": "location.coordinates"
+            }
+          }
+        }
+      ]
+    },
+    "compoundSearch": {
+      "description": "Complex search with multiple criteria",
+      "pipeline": [
+        {
+          "$search": {
+            "index": "events_search_index",
+            "compound": {
+              "must": [
+                {
+                  "text": {
+                    "query": "yoga",
+                    "path": ["title", "description"]
+                  }
+                }
+              ],
+              "filter": [
+                {
+                  "range": {
+                    "path": "startTime",
+                    "gte": "ISODate('2025-01-01')",
+                    "lte": "ISODate('2025-12-31')"
+                  }
+                },
+                {
+                  "equals": {
+                    "path": "status",
+                    "value": "PUBLISHED"
+                  }
+                }
+              ],
+              "should": [
+                {
+                  "equals": {
+                    "path": "pricing.isFree",
+                    "value": true,
+                    "score": { "boost": { "value": 2 } }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "$limit": 20
+        }
+      ]
+    },
+    "autocomplete": {
+      "description": "Autocomplete for event titles",
+      "pipeline": [
+        {
+          "$search": {
+            "index": "events_search_index",
+            "autocomplete": {
+              "query": "yog",
+              "path": "title",
+              "fuzzy": {
+                "maxEdits": 1
+              }
+            }
+          }
+        },
+        {
+          "$limit": 10
+        },
+        {
+          "$project": {
+            "_id": 1,
+            "title": 1,
+            "score": { "$meta": "searchScore" }
+          }
+        }
+      ]
+    }
+  }
+}

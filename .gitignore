@@ -1,0 +1,130 @@
+# ========================================
+# Node / TypeScript
+# ========================================
+node_modules/
+dist/
+build/
+coverage/
+lib/
+.tmp/
+temp/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+*.tsbuildinfo
+
+# ========================================
+# Next.js / React
+# ========================================
+.next/
+out/
+.vercel/
+*.log
+.next/cache/
+# If using local Next.js env vars
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ========================================
+# Environment / Secrets
+# ========================================
+.env
+.env.*
+!.env.example   # keep example only
+*.key
+*.pem
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# ========================================
+# AWS / Serverless / CloudFormation
+# ========================================
+.aws-sam/
+.aws/
+*.template
+*.stack.yml.backup
+*.cfbackup
+*.zip
+# Temporary deploy outputs
+infra/cloudformation/tmp/
+infra/cloudformation/*.tmp.yml
+
+# ========================================
+# Mongo / Atlas / DB tooling
+# ========================================
+dump/
+mongodb-logs/
+*.bson
+*.json.bak
+infra/migrations/tmp/
+infra/scripts/tmp/
+
+# ========================================
+# Logs & Runtime Artifacts
+# ========================================
+logs/
+*.log
+*.pid
+*.seed
+nohup.out
+
+# ========================================
+# Testing / Coverage / Reports
+# ========================================
+coverage/
+nyc_output/
+jest-html-reporters-*.html
+test-results.xml
+cypress/videos/
+cypress/screenshots/
+playwright-report/
+.vscode-test/
+
+# ========================================
+# IDE / Editor / OS
+# ========================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.orig
+
+# ========================================
+# AI / Assistant Local Workdirs
+# ========================================
+.claude/
+.chatgpt/
+.anthropic/
+.openai/
+.ai-cache/
+ai-output/
+# optional: your custom scratch dirs
+/tmp-ai/
+.ai_tmp/
+
+# ========================================
+# Misc
+# ========================================
+# Build outputs from front-end
+src/web/.next/
+src/web/out/
+src/web/node_modules/
+
+# Local test files
+test-local.*
+sandbox-test-*
+scratchpad.*
+
+# Ignore local tooling outputs
+.migrations.log
+.deployment.log
+

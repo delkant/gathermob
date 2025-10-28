@@ -1,0 +1,686 @@
+# File: /src/api/schema.graphql
+# Description: GraphQL schema for Group Ops Platform Phase 1
+# Generated: 2025-10-28
+# PRD Reference: v0.3
+
+# ========================================
+# SCALAR TYPES
+# ========================================
+
+scalar DateTime
+scalar ObjectId
+scalar JSON
+
+# ========================================
+# ENUMS
+# ========================================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum MembershipRole {
+  MEMBER
+  MODERATOR
+  ADMIN
+  OWNER
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum EventVisibility {
+  PUBLIC
+  MEMBERS_ONLY
+  INVITE_ONLY
+}
+
+enum RSVPStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  WAITLISTED
+  NO_SHOW
+}
+
+enum AttendanceStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  NO_SHOW
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  REFUND
+  TRANSFER
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  WALLET
+  STRIPE
+  CASH
+  FREE
+}
+
+# ========================================
+# USER TYPES
+# ========================================
+
+type User {
+  id: ObjectId!
+  email: String
+  phone: String!
+  name: String!
+  avatar: String
+  bio: String
+  role: UserRole!
+  preferences: UserPreferences!
+  memberships: [Membership!]!
+  wallet: Wallet
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  lastActiveAt: DateTime
+}
+
+type UserPreferences {
+  notifications: NotificationPreferences!
+  language: String!
+  timezone: String!
+}
+
+type NotificationPreferences {
+  email: Boolean!
+  sms: Boolean!
+  push: Boolean!
+  eventReminders: Boolean!
+  rsvpUpdates: Boolean!
+  paymentAlerts: Boolean!
+}
+
+type AuthPayload {
+  accessToken: String!
+  refreshToken: String!
+  user: User!
+  expiresIn: Int!
+}
+
+# ========================================
+# ORGANIZATION TYPES
+# ========================================
+
+type Organization {
+  id: ObjectId!
+  name: String!
+  slug: String!
+  description: String
+  logo: String
+  coverImage: String
+  settings: OrganizationSettings!
+  stats: OrganizationStats!
+  members(first: Int, after: String, role: MembershipRole): MemberConnection!
+  events(first: Int, after: String, status: EventStatus): EventConnection!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OrganizationSettings {
+  visibility: EventVisibility!
+  requireApproval: Boolean!
+  allowGuestRSVP: Boolean!
+  paymentMethods: [PaymentMethod!]!
+  customDomain: String
+}
+
+type OrganizationStats {
+  totalMembers: Int!
+  totalEvents: Int!
+  upcomingEvents: Int!
+  totalRevenue: Float!
+}
+
+# ========================================
+# MEMBERSHIP TYPES
+# ========================================
+
+type Membership {
+  id: ObjectId!
+  user: User!
+  organization: Organization!
+  role: MembershipRole!
+  status: MembershipStatus!
+  joinedAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MemberConnection {
+  edges: [MemberEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type MemberEdge {
+  node: Membership!
+  cursor: String!
+}
+
+# ========================================
+# EVENT TYPES
+# ========================================
+
+type Event {
+  id: ObjectId!
+  organization: Organization!
+  title: String!
+  description: String!
+  startTime: DateTime!
+  endTime: DateTime!
+  location: Location!
+  maxCapacity: Int
+  currentCapacity: Int!
+  waitlistEnabled: Boolean!
+  status: EventStatus!
+  visibility: EventVisibility!
+  pricing: EventPricing!
+  tags: [String!]!
+  coverImage: String
+  rsvps(first: Int, after: String, status: RSVPStatus): RSVPConnection!
+  attendance(first: Int, after: String): AttendanceConnection!
+  stats: EventStats!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Location {
+  type: String! # "physical" or "virtual"
+  name: String!
+  address: String
+  city: String
+  state: String
+  country: String
+  postalCode: String
+  coordinates: Coordinates
+  virtualUrl: String
+  instructions: String
+}
+
+type Coordinates {
+  latitude: Float!
+  longitude: Float!
+}
+
+type EventPricing {
+  isFree: Boolean!
+  amount: Float
+  currency: String!
+  earlyBirdAmount: Float
+  earlyBirdDeadline: DateTime
+}
+
+type EventStats {
+  totalRSVPs: Int!
+  confirmedRSVPs: Int!
+  waitlisted: Int!
+  attended: Int!
+  revenue: Float!
+}
+
+type EventConnection {
+  edges: [EventEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type EventEdge {
+  node: Event!
+  cursor: String!
+}
+
+# ========================================
+# RSVP TYPES
+# ========================================
+
+type RSVP {
+  id: ObjectId!
+  user: User!
+  event: Event!
+  status: RSVPStatus!
+  guestCount: Int!
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type RSVPConnection {
+  edges: [RSVPEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type RSVPEdge {
+  node: RSVP!
+  cursor: String!
+}
+
+# ========================================
+# ATTENDANCE TYPES
+# ========================================
+
+type Attendance {
+  id: ObjectId!
+  user: User!
+  event: Event!
+  rsvp: RSVP
+  checkInTime: DateTime!
+  checkOutTime: DateTime
+  qrCode: String!
+  status: AttendanceStatus!
+  verifiedBy: User
+  notes: String
+}
+
+type AttendanceConnection {
+  edges: [AttendanceEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type AttendanceEdge {
+  node: Attendance!
+  cursor: String!
+}
+
+# ========================================
+# WALLET & TRANSACTION TYPES
+# ========================================
+
+type Wallet {
+  id: ObjectId!
+  user: User!
+  balance: Float!
+  currency: String!
+  status: String!
+  transactions(first: Int, after: String, type: TransactionType): TransactionConnection!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Transaction {
+  id: ObjectId!
+  wallet: Wallet!
+  event: Event
+  type: TransactionType!
+  amount: Float!
+  currency: String!
+  status: TransactionStatus!
+  description: String!
+  metadata: JSON
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type TransactionConnection {
+  edges: [TransactionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type TransactionEdge {
+  node: Transaction!
+  cursor: String!
+}
+
+# ========================================
+# PAGINATION TYPES
+# ========================================
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# ========================================
+# SEARCH TYPES
+# ========================================
+
+type EventSearchResult {
+  events: [Event!]!
+  facets: EventFacets!
+  totalCount: Int!
+}
+
+type EventFacets {
+  organizations: [FacetBucket!]!
+  cities: [FacetBucket!]!
+  tags: [FacetBucket!]!
+  priceRanges: [FacetBucket!]!
+}
+
+type FacetBucket {
+  value: String!
+  count: Int!
+}
+
+# ========================================
+# INPUT TYPES
+# ========================================
+
+input RequestOTPInput {
+  phoneOrEmail: String!
+}
+
+input VerifyOTPInput {
+  phoneOrEmail: String!
+  code: String!
+}
+
+input RefreshTokenInput {
+  refreshToken: String!
+}
+
+input UpdateUserInput {
+  name: String
+  avatar: String
+  bio: String
+  preferences: UserPreferencesInput
+}
+
+input UserPreferencesInput {
+  notifications: NotificationPreferencesInput
+  language: String
+  timezone: String
+}
+
+input NotificationPreferencesInput {
+  email: Boolean
+  sms: Boolean
+  push: Boolean
+  eventReminders: Boolean
+  rsvpUpdates: Boolean
+  paymentAlerts: Boolean
+}
+
+input CreateOrganizationInput {
+  name: String!
+  slug: String!
+  description: String
+  logo: String
+  coverImage: String
+  settings: OrganizationSettingsInput
+}
+
+input UpdateOrganizationInput {
+  name: String
+  description: String
+  logo: String
+  coverImage: String
+  settings: OrganizationSettingsInput
+}
+
+input OrganizationSettingsInput {
+  visibility: EventVisibility
+  requireApproval: Boolean
+  allowGuestRSVP: Boolean
+  paymentMethods: [PaymentMethod!]
+  customDomain: String
+}
+
+input CreateEventInput {
+  organizationId: ObjectId!
+  title: String!
+  description: String!
+  startTime: DateTime!
+  endTime: DateTime!
+  location: LocationInput!
+  maxCapacity: Int
+  waitlistEnabled: Boolean
+  visibility: EventVisibility
+  pricing: EventPricingInput
+  tags: [String!]
+  coverImage: String
+}
+
+input UpdateEventInput {
+  title: String
+  description: String
+  startTime: DateTime
+  endTime: DateTime
+  location: LocationInput
+  maxCapacity: Int
+  waitlistEnabled: Boolean
+  visibility: EventVisibility
+  pricing: EventPricingInput
+  tags: [String!]
+  coverImage: String
+  status: EventStatus
+}
+
+input LocationInput {
+  type: String!
+  name: String!
+  address: String
+  city: String
+  state: String
+  country: String
+  postalCode: String
+  coordinates: CoordinatesInput
+  virtualUrl: String
+  instructions: String
+}
+
+input CoordinatesInput {
+  latitude: Float!
+  longitude: Float!
+}
+
+input EventPricingInput {
+  isFree: Boolean!
+  amount: Float
+  currency: String
+  earlyBirdAmount: Float
+  earlyBirdDeadline: DateTime
+}
+
+input CreateRSVPInput {
+  eventId: ObjectId!
+  guestCount: Int
+  notes: String
+}
+
+input UpdateRSVPInput {
+  status: RSVPStatus
+  guestCount: Int
+  notes: String
+}
+
+input CheckInInput {
+  eventId: ObjectId!
+  userId: ObjectId
+  qrCode: String
+  notes: String
+}
+
+input CheckOutInput {
+  attendanceId: ObjectId!
+  notes: String
+}
+
+input CreateTransactionInput {
+  eventId: ObjectId
+  type: TransactionType!
+  amount: Float!
+  description: String!
+  metadata: JSON
+}
+
+input EventSearchInput {
+  query: String
+  organizationIds: [ObjectId!]
+  cities: [String!]
+  tags: [String!]
+  startDate: DateTime
+  endDate: DateTime
+  priceMin: Float
+  priceMax: Float
+  hasAvailability: Boolean
+  first: Int
+  after: String
+}
+
+# ========================================
+# QUERIES
+# ========================================
+
+type Query {
+  # User queries
+  me: User
+  user(id: ObjectId!): User
+  users(first: Int, after: String, role: UserRole): UserConnection!
+
+  # Organization queries
+  organization(id: ObjectId, slug: String): Organization
+  organizations(first: Int, after: String): OrganizationConnection!
+  myOrganizations: [Organization!]!
+
+  # Event queries
+  event(id: ObjectId!): Event
+  events(
+    first: Int
+    after: String
+    organizationId: ObjectId
+    status: EventStatus
+    startDate: DateTime
+    endDate: DateTime
+  ): EventConnection!
+  upcomingEvents(first: Int): [Event!]!
+  myEvents(first: Int, after: String): EventConnection!
+
+  # RSVP queries
+  rsvp(id: ObjectId!): RSVP
+  myRSVPs(first: Int, after: String, status: RSVPStatus): RSVPConnection!
+
+  # Attendance queries
+  attendance(id: ObjectId!): Attendance
+  myAttendance(first: Int, after: String): AttendanceConnection!
+
+  # Wallet queries
+  myWallet: Wallet
+  transaction(id: ObjectId!): Transaction
+
+  # Search queries
+  searchEvents(input: EventSearchInput!): EventSearchResult!
+}
+
+# ========================================
+# MUTATIONS
+# ========================================
+
+type Mutation {
+  # Auth mutations
+  requestOTP(input: RequestOTPInput!): Boolean!
+  verifyOTP(input: VerifyOTPInput!): AuthPayload!
+  refreshToken(input: RefreshTokenInput!): AuthPayload!
+  logout: Boolean!
+
+  # User mutations
+  updateProfile(input: UpdateUserInput!): User!
+  deleteAccount: Boolean!
+
+  # Organization mutations
+  createOrganization(input: CreateOrganizationInput!): Organization!
+  updateOrganization(id: ObjectId!, input: UpdateOrganizationInput!): Organization!
+  deleteOrganization(id: ObjectId!): Boolean!
+
+  # Membership mutations
+  inviteMember(organizationId: ObjectId!, userId: ObjectId!, role: MembershipRole!): Membership!
+  updateMemberRole(membershipId: ObjectId!, role: MembershipRole!): Membership!
+  removeMember(membershipId: ObjectId!): Boolean!
+  joinOrganization(organizationId: ObjectId!): Membership!
+  leaveOrganization(organizationId: ObjectId!): Boolean!
+
+  # Event mutations
+  createEvent(input: CreateEventInput!): Event!
+  updateEvent(id: ObjectId!, input: UpdateEventInput!): Event!
+  cancelEvent(id: ObjectId!, reason: String): Event!
+  deleteEvent(id: ObjectId!): Boolean!
+
+  # RSVP mutations
+  createRSVP(input: CreateRSVPInput!): RSVP!
+  updateRSVP(id: ObjectId!, input: UpdateRSVPInput!): RSVP!
+  cancelRSVP(id: ObjectId!): RSVP!
+
+  # Attendance mutations
+  checkIn(input: CheckInInput!): Attendance!
+  checkOut(input: CheckOutInput!): Attendance!
+
+  # Transaction mutations (Phase 1: Manual only)
+  createTransaction(input: CreateTransactionInput!): Transaction!
+  cancelTransaction(id: ObjectId!): Transaction!
+}
+
+# ========================================
+# SUBSCRIPTIONS (Future Enhancement)
+# ========================================
+
+type Subscription {
+  # Event updates
+  eventUpdated(eventId: ObjectId!): Event!
+
+  # RSVP updates
+  rsvpCreated(eventId: ObjectId!): RSVP!
+  rsvpUpdated(eventId: ObjectId!): RSVP!
+
+  # Attendance updates
+  attendanceUpdated(eventId: ObjectId!): Attendance!
+
+  # Organization updates
+  organizationUpdated(organizationId: ObjectId!): Organization!
+}
+
+# ========================================
+# CONNECTIONS (Additional)
+# ========================================
+
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type UserEdge {
+  node: User!
+  cursor: String!
+}
+
+type OrganizationConnection {
+  edges: [OrganizationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type OrganizationEdge {
+  node: Organization!
+  cursor: String!
+}

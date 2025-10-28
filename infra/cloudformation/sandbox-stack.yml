@@ -1,0 +1,473 @@
+# File: /infra/cloudformation/sandbox-stack.yml
+# Description: CloudFormation stack for Group Ops Platform sandbox environment
+# Generated: 2025-10-28
+# PRD Reference: v0.3
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Group Ops Platform - Sandbox Environment Stack'
+
+# ========================================
+# PARAMETERS
+# ========================================
+
+Parameters:
+  Environment:
+    Type: String
+    Default: sandbox
+    AllowedValues:
+      - sandbox
+      - qa
+      - prod
+    Description: Environment name
+
+  MongoDBConnectionString:
+    Type: String
+    NoEcho: true
+    Description: MongoDB Atlas connection string
+    Default: '{{resolve:secretsmanager:group-ops/mongodb:SecretString:connectionString}}'
+
+  JWTSecret:
+    Type: String
+    NoEcho: true
+    Description: JWT signing secret
+    Default: '{{resolve:secretsmanager:group-ops/jwt:SecretString:secret}}'
+
+  TwilioAccountSid:
+    Type: String
+    NoEcho: true
+    Description: Twilio Account SID
+    Default: '{{resolve:secretsmanager:group-ops/twilio:SecretString:accountSid}}'
+
+  TwilioAuthToken:
+    Type: String
+    NoEcho: true
+    Description: Twilio Auth Token
+    Default: '{{resolve:secretsmanager:group-ops/twilio:SecretString:authToken}}'
+
+  DomainName:
+    Type: String
+    Description: Custom domain name for API
+    Default: ''
+
+# ========================================
+# MAPPINGS
+# ========================================
+
+Mappings:
+  EnvironmentConfig:
+    sandbox:
+      LambdaMemory: 512
+      LambdaTimeout: 15
+      CacheNodeType: cache.t3.micro
+      RateLimitPerSecond: 100
+      LogRetentionDays: 7
+    qa:
+      LambdaMemory: 1024
+      LambdaTimeout: 30
+      CacheNodeType: cache.t3.small
+      RateLimitPerSecond: 500
+      LogRetentionDays: 30
+    prod:
+      LambdaMemory: 2048
+      LambdaTimeout: 30
+      CacheNodeType: cache.t3.medium
+      RateLimitPerSecond: 2000
+      LogRetentionDays: 90
+
+# ========================================
+# RESOURCES
+# ========================================
+
+Resources:
+  # ----------------------------------------
+  # VPC Resources
+  # ----------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpc'
+        - Key: Environment
+          Value: !Ref Environment
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-private-subnet-1'
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-private-subnet-2'
+
+  # ----------------------------------------
+  # Security Groups
+  # ----------------------------------------
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Lambda functions
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-lambda-sg'
+
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ElastiCache
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-cache-sg'
+
+  # ----------------------------------------
+  # IAM Roles
+  # ----------------------------------------
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: LambdaExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:group-ops/*'
+              - Effect: Allow
+                Action:
+                  - elasticache:DescribeCacheClusters
+                  - elasticache:DescribeCacheNodes
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: '*'
+
+  # ----------------------------------------
+  # API Gateway
+  # ----------------------------------------
+  ApiGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-api'
+      Description: Group Ops Platform API Gateway
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Amz-Date
+          - X-Api-Key
+          - X-Amz-Security-Token
+        MaxAge: 86400
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ApiGateway
+      StageName: !Ref Environment
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingRateLimit: !FindInMap [EnvironmentConfig, !Ref Environment, RateLimitPerSecond]
+        ThrottlingBurstLimit: !FindInMap [EnvironmentConfig, !Ref Environment, RateLimitPerSecond]
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${AWS::StackName}'
+      RetentionInDays: !FindInMap [EnvironmentConfig, !Ref Environment, LogRetentionDays]
+
+  # ----------------------------------------
+  # Lambda Functions
+  # ----------------------------------------
+  GraphQLFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-graphql'
+      Description: Main GraphQL resolver function
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: !FindInMap [EnvironmentConfig, !Ref Environment, LambdaMemory]
+      Timeout: !FindInMap [EnvironmentConfig, !Ref Environment, LambdaTimeout]
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          MONGODB_URI: !Ref MongoDBConnectionString
+          JWT_SECRET: !Ref JWTSecret
+          REDIS_ENDPOINT: !GetAtt CacheCluster.RedisEndpoint.Address
+          REDIS_PORT: !GetAtt CacheCluster.RedisEndpoint.Port
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            // Placeholder GraphQL handler
+            return {
+              statusCode: 200,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: 'GraphQL endpoint placeholder' })
+            };
+          };
+
+  GraphQLLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${GraphQLFunction}'
+      RetentionInDays: !FindInMap [EnvironmentConfig, !Ref Environment, LogRetentionDays]
+
+  AuthFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-auth'
+      Description: Authentication handler for OTP
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: 512
+      Timeout: 10
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          MONGODB_URI: !Ref MongoDBConnectionString
+          JWT_SECRET: !Ref JWTSecret
+          TWILIO_ACCOUNT_SID: !Ref TwilioAccountSid
+          TWILIO_AUTH_TOKEN: !Ref TwilioAuthToken
+          REDIS_ENDPOINT: !GetAtt CacheCluster.RedisEndpoint.Address
+          REDIS_PORT: !GetAtt CacheCluster.RedisEndpoint.Port
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            // Placeholder auth handler
+            return {
+              statusCode: 200,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: 'Auth endpoint placeholder' })
+            };
+          };
+
+  AuthLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AuthFunction}'
+      RetentionInDays: !FindInMap [EnvironmentConfig, !Ref Environment, LogRetentionDays]
+
+  # ----------------------------------------
+  # API Gateway Integrations
+  # ----------------------------------------
+  GraphQLIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GraphQLFunction.Arn}/invocations'
+      PayloadFormatVersion: '2.0'
+
+  GraphQLRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'POST /graphql'
+      Target: !Sub 'integrations/${GraphQLIntegration}'
+
+  GraphQLPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GraphQLFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*'
+
+  AuthIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthFunction.Arn}/invocations'
+      PayloadFormatVersion: '2.0'
+
+  AuthOTPRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'POST /auth/otp'
+      Target: !Sub 'integrations/${AuthIntegration}'
+
+  AuthVerifyRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'POST /auth/verify'
+      Target: !Sub 'integrations/${AuthIntegration}'
+
+  AuthPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AuthFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*'
+
+  # ----------------------------------------
+  # ElastiCache (Redis)
+  # ----------------------------------------
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for ElastiCache
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  CacheCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: !FindInMap [EnvironmentConfig, !Ref Environment, CacheNodeType]
+      Engine: redis
+      NumCacheNodes: 1
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref CacheSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-cache'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ----------------------------------------
+  # CloudWatch Alarms
+  # ----------------------------------------
+  GraphQLErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-graphql-errors'
+      AlarmDescription: Alert when GraphQL function has high error rate
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GraphQLFunction
+      TreatMissingData: notBreaching
+
+  ApiGateway4xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-api-4xx'
+      AlarmDescription: Alert when API has high 4xx error rate
+      MetricName: 4XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 50
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref ApiGateway
+      TreatMissingData: notBreaching
+
+# ========================================
+# OUTPUTS
+# ========================================
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-api-endpoint'
+
+  GraphQLFunctionArn:
+    Description: GraphQL Lambda function ARN
+    Value: !GetAtt GraphQLFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-graphql-function-arn'
+
+  AuthFunctionArn:
+    Description: Auth Lambda function ARN
+    Value: !GetAtt AuthFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-auth-function-arn'
+
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-vpc-id'
+
+  RedisEndpoint:
+    Description: Redis cache endpoint
+    Value: !GetAtt CacheCluster.RedisEndpoint.Address
+    Export:
+      Name: !Sub '${AWS::StackName}-redis-endpoint'
+
+  StackName:
+    Description: Stack name
+    Value: !Ref AWS::StackName
