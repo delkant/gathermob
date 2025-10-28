@@ -1,7 +1,7 @@
 # File: /src/api/schema.graphql
-# Description: GraphQL schema for Group Ops Platform Phase 1
+# Description: GraphQL schema for Group Ops Platform Phase 1 with health monitoring
 # Generated: 2025-10-28
-# PRD Reference: v0.3
+# PRD Reference: v0.4
 
 # ========================================
 # SCALAR TYPES
@@ -550,10 +550,24 @@ input EventSearchInput {
 }
 
 # ========================================
+# HEALTH CHECK
+# ========================================
+
+type HealthStatus {
+  status: String!
+  env: String!
+  timestamp: DateTime!
+  version: String!
+}
+
+# ========================================
 # QUERIES
 # ========================================
 
 type Query {
+  # Health check (no auth required)
+  health: HealthStatus!
+
   # User queries
   me: User
   user(id: ObjectId!): User
