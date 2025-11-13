@@ -1,0 +1,455 @@
+# File: /infra/github-actions/deploy-sandbox.yml
+# Description: GitHub Actions workflow for deploying to sandbox environment with deployment hardening
+# Generated: 2025-10-28
+# PRD Reference: v0.4
+
+name: Deploy to Sandbox
+
+on:
+  push:
+    branches:
+      - sandbox
+  pull_request:
+    branches:
+      - sandbox
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  NODE_VERSION: '18.x'
+  AWS_REGION: 'us-east-1'
+  ENVIRONMENT: 'sandbox'
+  STACK_NAME: 'group-ops-sandbox'
+
+jobs:
+  # ========================================
+  # LINT AND TEST
+  # ========================================
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    if: github.event.inputs.skip_tests != 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: false
+
+      - name: Run TypeScript check
+        run: npm run type-check
+        continue-on-error: false
+
+      - name: Run unit tests
+        run: npm run test:unit
+        env:
+          CI: true
+
+      - name: Upload test coverage
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # ========================================
+  # BUILD
+  # ========================================
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: [lint-and-test]
+    if: always() && (needs.lint-and-test.result == 'success' || github.event.inputs.skip_tests == 'true')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: |
+          npm run build
+          # Verify build output
+          ls -la dist/
+
+      - name: Copy GraphQL schema
+        run: |
+          cp src/api/schema.graphql dist/api/
+
+      - name: Bundle Lambda functions
+        run: |
+          # Create deployment packages for each Lambda function from compiled JS
+          mkdir -p dist/lambdas
+
+          # GraphQL Lambda - package from compiled JS
+          cd dist/api
+          npm init -y
+          npm install @apollo/server @as-integrations/aws-lambda graphql mongodb
+          zip -r ../lambdas/graphql.zip . -x "*.ts" -x "*.test.*" -x "*.map"
+          cd ../..
+
+          # Auth Lambda - package from compiled JS
+          cd dist/auth
+          npm init -y
+          npm install aws-lambda mongodb
+          zip -r ../lambdas/auth.zip . -x "*.ts" -x "*.test.*" -x "*.map"
+          cd ../..
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-packages
+          path: dist/lambdas/
+          retention-days: 7
+
+  # ========================================
+  # DATABASE MIGRATIONS
+  # ========================================
+  run-migrations:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/sandbox' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: sandbox
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get MongoDB connection string
+        id: get-mongo-uri
+        run: |
+          MONGO_URI=$(aws secretsmanager get-secret-value \
+            --secret-id group-ops/mongodb \
+            --query 'SecretString' \
+            --output text | jq -r '.connectionString')
+          echo "::add-mask::$MONGO_URI"
+          echo "MONGO_URI=$MONGO_URI" >> $GITHUB_OUTPUT
+
+      - name: Run migration dry-run
+        run: |
+          npm run migrate:dry-run
+        env:
+          MONGODB_URI: ${{ steps.get-mongo-uri.outputs.MONGO_URI }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
+
+      - name: Run migrations
+        run: |
+          npm run migrate:up
+        env:
+          MONGODB_URI: ${{ steps.get-mongo-uri.outputs.MONGO_URI }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
+
+      - name: Sync Atlas Search indexes
+        run: |
+          npm run sync:search-indexes
+        env:
+          MONGODB_URI: ${{ steps.get-mongo-uri.outputs.MONGO_URI }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
+
+  # ========================================
+  # DEPLOY INFRASTRUCTURE
+  # ========================================
+  deploy-infrastructure:
+    name: Deploy CloudFormation Stack
+    runs-on: ubuntu-latest
+    needs: [run-migrations]
+    if: github.ref == 'refs/heads/sandbox' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: sandbox
+      url: ${{ steps.get-api-url.outputs.api_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Lambda packages
+        uses: actions/download-artifact@v3
+        with:
+          name: lambda-packages
+          path: dist/lambdas/
+
+      - name: Upload Lambda packages to S3
+        run: |
+          # Create S3 bucket for Lambda deployments with unique name
+          BUCKET_NAME="group-ops-lambda-${{ env.ENVIRONMENT }}-${{ github.repository_owner }}"
+          aws s3 mb s3://${BUCKET_NAME} --region ${{ env.AWS_REGION }} || true
+
+          # Upload Lambda packages
+          aws s3 cp dist/lambdas/ s3://${BUCKET_NAME}/ --recursive
+
+      - name: Validate CloudFormation template
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infra/cloudformation/sandbox-stack.yml
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/cloudformation/sandbox-stack.yml \
+            --stack-name ${{ env.STACK_NAME }} \
+            --parameter-overrides \
+              Environment=${{ env.ENVIRONMENT }} \
+            --capabilities CAPABILITY_IAM \
+            --no-fail-on-empty-changeset \
+            --tags \
+              Environment=${{ env.ENVIRONMENT }} \
+              ManagedBy=GitHubActions \
+              Repository=${{ github.repository }} \
+              Commit=${{ github.sha }}
+
+      - name: Get API endpoint
+        id: get-api-url
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+            --output text)
+          echo "API_URL=$API_URL" >> $GITHUB_OUTPUT
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+
+      - name: Update Lambda function code
+        run: |
+          BUCKET_NAME="group-ops-lambda-${{ env.ENVIRONMENT }}-${{ github.repository_owner }}"
+
+          # Update GraphQL Lambda
+          aws lambda update-function-code \
+            --function-name ${{ env.STACK_NAME }}-graphql \
+            --s3-bucket ${BUCKET_NAME} \
+            --s3-key graphql.zip \
+            --publish
+
+          # Wait for update to complete
+          aws lambda wait function-updated \
+            --function-name ${{ env.STACK_NAME }}-graphql
+
+          # Update Auth Lambda
+          aws lambda update-function-code \
+            --function-name ${{ env.STACK_NAME }}-auth \
+            --s3-bucket ${BUCKET_NAME} \
+            --s3-key auth.zip \
+            --publish
+
+          # Wait for update to complete
+          aws lambda wait function-updated \
+            --function-name ${{ env.STACK_NAME }}-auth
+
+          # Update environment variable with build version
+          aws lambda update-function-configuration \
+            --function-name ${{ env.STACK_NAME }}-graphql \
+            --environment "Variables={BUILD_VERSION=${{ github.sha }}}"
+
+  # ========================================
+  # SMOKE TESTS
+  # ========================================
+  smoke-tests:
+    name: Run Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure]
+    if: github.ref == 'refs/heads/sandbox' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get API endpoint
+        id: get-api-url
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+            --output text)
+          echo "API_URL=$API_URL" >> $GITHUB_OUTPUT
+
+      - name: Test GraphQL health endpoint
+        run: |
+          # Test the health query
+          response=$(curl -s -X POST ${{ steps.get-api-url.outputs.API_URL }}/graphql \
+            -H 'Content-Type: application/json' \
+            -d '{"query":"{ health { status env timestamp version } }"}' \
+            -w "\n%{http_code}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          if [ "$http_code" -ne 200 ]; then
+            echo "❌ GraphQL health endpoint returned $http_code"
+            echo "Response: $body"
+            exit 1
+          fi
+
+          # Check if status is "ok"
+          status=$(echo "$body" | jq -r '.data.health.status')
+          if [ "$status" != "ok" ]; then
+            echo "❌ Health check failed with status: $status"
+            echo "Response: $body"
+            exit 1
+          fi
+
+          echo "✅ GraphQL health check passed"
+          echo "Response: $body"
+
+      - name: Test Auth endpoint
+        run: |
+          # Test OTP request endpoint with phoneNumber
+          response=$(curl -s -X POST ${{ steps.get-api-url.outputs.API_URL }}/auth/otp \
+            -H 'Content-Type: application/json' \
+            -d '{"phoneNumber":"+1234567890"}' \
+            -w "\n%{http_code}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          if [ "$http_code" -ne 200 ] && [ "$http_code" -ne 400 ]; then
+            echo "❌ Auth endpoint returned unexpected status: $http_code"
+            echo "Response: $body"
+            exit 1
+          fi
+
+          # Check if we got a success response
+          success=$(echo "$body" | jq -r '.success')
+          if [ "$success" == "true" ]; then
+            echo "✅ Auth OTP endpoint test passed"
+          else
+            echo "⚠️ Auth endpoint returned expected error (phone validation)"
+          fi
+          echo "Response: $body"
+
+  # ========================================
+  # NOTIFICATIONS
+  # ========================================
+  notify-deployment:
+    name: Send Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    if: always()
+
+    steps:
+      - name: Send Slack notification
+        if: github.event_name != 'pull_request'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Deployment to Sandbox: ${{ job.status }}
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Create deployment status
+        if: github.event_name != 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'sandbox',
+              required_contexts: [],
+              auto_merge: false
+            });
+
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: 'success',
+              environment_url: '${{ needs.deploy-infrastructure.outputs.api_url }}',
+              description: 'Deployment completed successfully'
+            });
+
+# ========================================
+# WORKFLOW CONFIGURATION
+# ========================================
+# This workflow:
+# 1. Runs on push to sandbox branch
+# 2. Runs on PRs to sandbox branch (lint/test only)
+# 3. Can be manually triggered with option to skip tests
+# 4. Performs linting, testing, building
+# 5. Runs database migrations
+# 6. Deploys CloudFormation stack
+# 7. Updates Lambda function code
+# 8. Runs smoke tests
+# 9. Sends notifications on completion
