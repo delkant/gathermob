@@ -58,7 +58,13 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # Add retry logic for npm install to handle rate limits
+          for i in 1 2 3; do
+            npm ci && break
+            echo "Attempt $i failed, waiting 10 seconds..."
+            sleep 10
+          done
 
       - name: Run ESLint
         run: npm run lint || echo "ESLint not configured yet"
@@ -103,7 +109,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # Add retry logic for npm install to handle rate limits
+          for i in 1 2 3; do
+            npm ci && break
+            echo "Attempt $i failed, waiting 10 seconds..."
+            sleep 10
+          done
 
       - name: Build TypeScript
         run: |
@@ -123,14 +135,24 @@ jobs:
           # GraphQL Lambda - package from compiled JS
           cd dist/api
           npm init -y
-          npm install @apollo/server @as-integrations/aws-lambda graphql mongodb
+          # Add retry logic and use --prefer-offline to reduce API calls
+          for i in 1 2 3; do
+            npm install --prefer-offline @apollo/server @as-integrations/aws-lambda graphql mongodb && break
+            echo "GraphQL Lambda deps install attempt $i failed, waiting 15 seconds..."
+            sleep 15
+          done
           zip -r ../lambdas/graphql.zip . -x "*.ts" -x "*.test.*" -x "*.map"
           cd ../..
 
           # Auth Lambda - package from compiled JS
           cd dist/auth
           npm init -y
-          npm install aws-lambda mongodb
+          # Add retry logic and use --prefer-offline to reduce API calls
+          for i in 1 2 3; do
+            npm install --prefer-offline aws-lambda mongodb && break
+            echo "Auth Lambda deps install attempt $i failed, waiting 15 seconds..."
+            sleep 15
+          done
           zip -r ../lambdas/auth.zip . -x "*.ts" -x "*.test.*" -x "*.map"
           cd ../..
 
@@ -163,7 +185,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # Add retry logic for npm install to handle rate limits
+          for i in 1 2 3; do
+            npm ci && break
+            echo "Attempt $i failed, waiting 10 seconds..."
+            sleep 10
+          done
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -175,10 +203,11 @@ jobs:
       - name: Get MongoDB connection string
         id: get-mongo-uri
         run: |
+          # Get the secret value directly as text (not JSON)
           MONGO_URI=$(aws secretsmanager get-secret-value \
             --secret-id group-ops/mongodb \
             --query 'SecretString' \
-            --output text | jq -r '.connectionString')
+            --output text)
           echo "::add-mask::$MONGO_URI"
           echo "MONGO_URI=$MONGO_URI" >> $GITHUB_OUTPUT
 
@@ -322,7 +351,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # Add retry logic for npm install to handle rate limits
+          for i in 1 2 3; do
+            npm ci && break
+            echo "Attempt $i failed, waiting 10 seconds..."
+            sleep 10
+          done
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
