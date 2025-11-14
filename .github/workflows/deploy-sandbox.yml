@@ -200,6 +200,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get Runner IP for MongoDB Atlas Whitelist
+        run: |
+          # Get the public IP of the GitHub Actions runner
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "GitHub Actions Runner IP: $RUNNER_IP"
+          echo "⚠️  Ensure this IP is whitelisted in MongoDB Atlas Network Access"
+          echo "   Or temporarily use 0.0.0.0/0 for testing"
+
       - name: Get MongoDB connection string
         id: get-mongo-uri
         run: |
@@ -215,7 +223,17 @@ jobs:
             exit 1
           fi
 
-          echo "MongoDB URI successfully retrieved"
+          # Add TLS options if not present (helps with SSL issues)
+          if [[ ! "$MONGO_URI" =~ tls= ]]; then
+            # Check if URI already has query params
+            if [[ "$MONGO_URI" =~ \? ]]; then
+              MONGO_URI="${MONGO_URI}&tls=true&tlsAllowInvalidCertificates=false"
+            else
+              MONGO_URI="${MONGO_URI}?tls=true&tlsAllowInvalidCertificates=false"
+            fi
+          fi
+
+          echo "MongoDB URI successfully retrieved and configured"
           echo "::add-mask::$MONGO_URI"
           echo "MONGO_URI=$MONGO_URI" >> $GITHUB_OUTPUT
 
