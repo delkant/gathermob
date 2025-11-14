@@ -6,7 +6,7 @@
  */
 
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import * as crypto from 'crypto';
 
 // MongoDB connection
@@ -214,25 +214,27 @@ export const handler = async (
 
       if (!user) {
         // Create new user
-        user = {
-          _id: new Date().getTime().toString(),
+        const newUserId = new ObjectId();
+        const newUser = {
+          _id: newUserId,
           phone: phoneNumber,
           role: 'USER',
           createdAt: new Date(),
           updatedAt: new Date()
         };
-        await db.collection('users').insertOne(user);
+        await db.collection('users').insertOne(newUser);
+        user = newUser;
       }
 
       // Generate JWT tokens (stub for v0.4)
       const accessToken = Buffer.from(JSON.stringify({
-        userId: user._id,
+        userId: user._id.toString(),
         phone: phoneNumber,
         exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
       })).toString('base64');
 
       const refreshToken = Buffer.from(JSON.stringify({
-        userId: user._id,
+        userId: user._id.toString(),
         type: 'refresh',
         exp: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
       })).toString('base64');
@@ -243,7 +245,7 @@ export const handler = async (
         body: JSON.stringify({
           success: true,
           user: {
-            id: user._id,
+            id: user._id.toString(),
             phone: user.phone,
             name: user.name || null,
             role: user.role

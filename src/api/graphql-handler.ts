@@ -9,7 +9,7 @@ import { ApolloServer } from '@apollo/server';
 import { startServerAndCreateLambdaHandler, handlers } from '@as-integrations/aws-lambda';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { GraphQLScalarType } from 'graphql';
 import { Kind } from 'graphql/language';
 
@@ -120,10 +120,16 @@ const resolvers = {
     },
 
     user: async (_parent: any, args: { id: string }, _context: any) => {
-      const client = await getMongoClient();
-      const db = client.db('group-ops');
-      const user = await db.collection('users').findOne({ _id: args.id });
-      return user;
+      try {
+        const client = await getMongoClient();
+        const db = client.db('group-ops');
+        const objectId = new ObjectId(args.id);
+        const user = await db.collection('users').findOne({ _id: objectId });
+        return user;
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        return null;
+      }
     },
 
     users: async (_parent: any, args: { first?: number; after?: string; role?: string }) => {
@@ -149,10 +155,21 @@ const resolvers = {
 
     // Organization queries (stub implementations)
     organization: async (_parent: any, args: { id?: string; slug?: string }) => {
-      const client = await getMongoClient();
-      const db = client.db('group-ops');
-      const query = args.id ? { _id: args.id } : { slug: args.slug };
-      return await db.collection('organizations').findOne(query || {});
+      try {
+        const client = await getMongoClient();
+        const db = client.db('group-ops');
+        const query = args.id
+          ? { _id: new ObjectId(args.id) }
+          : args.slug
+          ? { slug: args.slug }
+          : null;
+
+        if (!query) return null;
+        return await db.collection('organizations').findOne(query);
+      } catch (error) {
+        console.error('Error fetching organization:', error);
+        return null;
+      }
     },
 
     organizations: async (_parent: any, args: { first?: number; after?: string }) => {
@@ -183,9 +200,15 @@ const resolvers = {
 
     // Event queries (stub implementations)
     event: async (_parent: any, args: { id: string }) => {
-      const client = await getMongoClient();
-      const db = client.db('group-ops');
-      return await db.collection('events').findOne({ _id: args.id });
+      try {
+        const client = await getMongoClient();
+        const db = client.db('group-ops');
+        const objectId = new ObjectId(args.id);
+        return await db.collection('events').findOne({ _id: objectId });
+      } catch (error) {
+        console.error('Error fetching event:', error);
+        return null;
+      }
     },
 
     events: async (_parent: any, args: any) => {
@@ -266,13 +289,19 @@ const resolvers = {
     },
 
     updateOrganization: async (_parent: any, args: { id: string; input: any }) => {
-      const client = await getMongoClient();
-      const db = client.db('group-ops');
-      await db.collection('organizations').updateOne(
-        { _id: args.id },
-        { $set: { ...args.input, updatedAt: new Date() } }
-      );
-      return await db.collection('organizations').findOne({ _id: args.id });
+      try {
+        const client = await getMongoClient();
+        const db = client.db('group-ops');
+        const objectId = new ObjectId(args.id);
+        await db.collection('organizations').updateOne(
+          { _id: objectId },
+          { $set: { ...args.input, updatedAt: new Date() } }
+        );
+        return await db.collection('organizations').findOne({ _id: objectId });
+      } catch (error) {
+        console.error('Error updating organization:', error);
+        return null;
+      }
     },
 
     // Event mutations (stub implementations)
@@ -292,13 +321,19 @@ const resolvers = {
     },
 
     updateEvent: async (_parent: any, args: { id: string; input: any }) => {
-      const client = await getMongoClient();
-      const db = client.db('group-ops');
-      await db.collection('events').updateOne(
-        { _id: args.id },
-        { $set: { ...args.input, updatedAt: new Date() } }
-      );
-      return await db.collection('events').findOne({ _id: args.id });
+      try {
+        const client = await getMongoClient();
+        const db = client.db('group-ops');
+        const objectId = new ObjectId(args.id);
+        await db.collection('events').updateOne(
+          { _id: objectId },
+          { $set: { ...args.input, updatedAt: new Date() } }
+        );
+        return await db.collection('events').findOne({ _id: objectId });
+      } catch (error) {
+        console.error('Error updating event:', error);
+        return null;
+      }
     },
 
     // RSVP mutations (stub implementations)
