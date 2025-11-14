@@ -114,19 +114,19 @@ const resolvers = {
     },
 
     // User queries (stub implementations)
-    me: async (parent: any, args: any, context: any) => {
+    me: async (_parent: any, _args: any, _context: any) => {
       // TODO: Implement with JWT auth
       return null;
     },
 
-    user: async (parent: any, args: { id: string }, context: any) => {
+    user: async (_parent: any, args: { id: string }, _context: any) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       const user = await db.collection('users').findOne({ _id: args.id });
       return user;
     },
 
-    users: async (parent: any, args: { first?: number; after?: string; role?: string }) => {
+    users: async (_parent: any, args: { first?: number; after?: string; role?: string }) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       const limit = args.first || 10;
@@ -148,14 +148,14 @@ const resolvers = {
     },
 
     // Organization queries (stub implementations)
-    organization: async (parent: any, args: { id?: string; slug?: string }) => {
+    organization: async (_parent: any, args: { id?: string; slug?: string }) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       const query = args.id ? { _id: args.id } : { slug: args.slug };
-      return await db.collection('organizations').findOne(query);
+      return await db.collection('organizations').findOne(query || {});
     },
 
-    organizations: async (parent: any, args: { first?: number; after?: string }) => {
+    organizations: async (_parent: any, args: { first?: number; after?: string }) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       const limit = args.first || 10;
@@ -176,19 +176,19 @@ const resolvers = {
       };
     },
 
-    myOrganizations: async (parent: any, args: any, context: any) => {
+    myOrganizations: async (_parent: any, _args: any, _context: any) => {
       // TODO: Implement with auth context
       return [];
     },
 
     // Event queries (stub implementations)
-    event: async (parent: any, args: { id: string }) => {
+    event: async (_parent: any, args: { id: string }) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       return await db.collection('events').findOne({ _id: args.id });
     },
 
-    events: async (parent: any, args: any) => {
+    events: async (_parent: any, args: any) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       const limit = args.first || 10;
@@ -209,7 +209,7 @@ const resolvers = {
       };
     },
 
-    searchEvents: async (parent: any, args: { query: string; filters?: any }) => {
+    searchEvents: async (_parent: any, _args: { query: string; filters?: any }) => {
       // TODO: Implement Atlas Search
       return {
         edges: [],
@@ -227,13 +227,13 @@ const resolvers = {
 
   Mutation: {
     // Auth mutations (stub implementations)
-    requestOTP: async (parent: any, args: { input: { phoneNumber: string } }) => {
+    requestOTP: async (_parent: any, args: { input: { phoneNumber: string } }) => {
       // TODO: Integrate with Twilio
       console.log(`OTP requested for ${args.input.phoneNumber}`);
       return { success: true, message: 'OTP sent successfully' };
     },
 
-    verifyOTP: async (parent: any, args: { input: { phoneNumber: string; otp: string } }) => {
+    verifyOTP: async (_parent: any, args: { input: { phoneNumber: string; otp: string } }) => {
       // TODO: Implement OTP verification
       if (args.input.otp.match(/^\d{6}$/)) {
         return {
@@ -252,7 +252,7 @@ const resolvers = {
     },
 
     // Organization mutations (stub implementations)
-    createOrganization: async (parent: any, args: { input: any }) => {
+    createOrganization: async (_parent: any, args: { input: any }) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       const org = {
@@ -265,7 +265,7 @@ const resolvers = {
       return org;
     },
 
-    updateOrganization: async (parent: any, args: { id: string; input: any }) => {
+    updateOrganization: async (_parent: any, args: { id: string; input: any }) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       await db.collection('organizations').updateOne(
@@ -276,7 +276,7 @@ const resolvers = {
     },
 
     // Event mutations (stub implementations)
-    createEvent: async (parent: any, args: { input: any }) => {
+    createEvent: async (_parent: any, args: { input: any }) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       const event = {
@@ -291,7 +291,7 @@ const resolvers = {
       return event;
     },
 
-    updateEvent: async (parent: any, args: { id: string; input: any }) => {
+    updateEvent: async (_parent: any, args: { id: string; input: any }) => {
       const client = await getMongoClient();
       const db = client.db('group-ops');
       await db.collection('events').updateOne(
@@ -302,7 +302,7 @@ const resolvers = {
     },
 
     // RSVP mutations (stub implementations)
-    createRSVP: async (parent: any, args: { input: { eventId: string } }) => {
+    createRSVP: async (_parent: any, args: { input: { eventId: string } }) => {
       const rsvp = {
         id: new Date().getTime().toString(),
         eventId: args.input.eventId,
@@ -313,7 +313,7 @@ const resolvers = {
       return rsvp;
     },
 
-    updateRSVP: async (parent: any, args: { id: string; status: string }) => {
+    updateRSVP: async (_parent: any, args: { id: string; status: string }) => {
       return {
         id: args.id,
         status: args.status,
@@ -321,7 +321,7 @@ const resolvers = {
       };
     },
 
-    cancelRSVP: async (parent: any, args: { id: string }) => {
+    cancelRSVP: async (_parent: any, args: { id: string }) => {
       return {
         id: args.id,
         status: 'CANCELLED',
