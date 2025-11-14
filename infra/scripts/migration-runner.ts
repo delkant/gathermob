@@ -10,13 +10,12 @@
 import { MongoClient, Db } from 'mongodb';
 import * as fs from 'fs';
 import * as path from 'path';
-// Optional dependencies - comment out if not installed
-// import { Command } from 'commander';
-// import * as dotenv from 'dotenv';
-// import chalk from 'chalk';
+import { Command } from 'commander';
+import * as dotenv from 'dotenv';
+import chalk from 'chalk';
 
-// Load environment variables if dotenv available
-// dotenv?.config();
+// Load environment variables
+dotenv.config();
 
 // ========================================
 // TYPES
