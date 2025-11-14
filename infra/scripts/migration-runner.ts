@@ -389,7 +389,12 @@ addCommonOptions(
   .action(async (options) => {
     const runner = new MigrationRunner();
     try {
-      await runner.connect(options.uri, options.database);
+      // Ensure URI is available from options or environment
+      const mongoUri = options.uri || process.env.MONGODB_URI;
+      if (!mongoUri) {
+        throw new Error('MongoDB URI not provided. Use --uri option or set MONGODB_URI environment variable');
+      }
+      await runner.connect(mongoUri, options.database);
       await runner.up(options.dryRun);
     } catch (error) {
       console.error(chalk.red('Migration failed:'), error);
@@ -408,7 +413,11 @@ addCommonOptions(
   .action(async (count, options) => {
     const runner = new MigrationRunner();
     try {
-      await runner.connect(options.uri, options.database);
+      const mongoUri = options.uri || process.env.MONGODB_URI;
+      if (!mongoUri) {
+        throw new Error('MongoDB URI not provided. Use --uri option or set MONGODB_URI environment variable');
+      }
+      await runner.connect(mongoUri, options.database);
       await runner.down(parseInt(count) || 1);
     } catch (error) {
       console.error(chalk.red('Rollback failed:'), error);
@@ -427,7 +436,11 @@ addCommonOptions(
   .action(async (options) => {
     const runner = new MigrationRunner();
     try {
-      await runner.connect(options.uri, options.database);
+      const mongoUri = options.uri || process.env.MONGODB_URI;
+      if (!mongoUri) {
+        throw new Error('MongoDB URI not provided. Use --uri option or set MONGODB_URI environment variable');
+      }
+      await runner.connect(mongoUri, options.database);
       await runner.status();
     } finally {
       await runner.disconnect();
@@ -444,7 +457,11 @@ addCommonOptions(
   .action(async (options) => {
     const runner = new MigrationRunner();
     try {
-      await runner.connect(options.uri, options.database);
+      const mongoUri = options.uri || process.env.MONGODB_URI;
+      if (!mongoUri) {
+        throw new Error('MongoDB URI not provided. Use --uri option or set MONGODB_URI environment variable');
+      }
+      await runner.connect(mongoUri, options.database);
       await runner.syncSearchIndexes(options.dryRun);
     } catch (error) {
       console.error(chalk.red('Index sync failed:'), error);
@@ -469,7 +486,11 @@ addCommonOptions(
 
     const runner = new MigrationRunner();
     try {
-      await runner.connect(options.uri, options.database);
+      const mongoUri = options.uri || process.env.MONGODB_URI;
+      if (!mongoUri) {
+        throw new Error('MongoDB URI not provided. Use --uri option or set MONGODB_URI environment variable');
+      }
+      await runner.connect(mongoUri, options.database);
       await runner.reset();
     } catch (error) {
       console.error(chalk.red('Reset failed:'), error);

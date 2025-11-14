@@ -203,16 +203,36 @@ jobs:
       - name: Get MongoDB connection string
         id: get-mongo-uri
         run: |
-          # Get the secret value directly as text (not JSON)
+          # Get the secret value and remove any surrounding quotes
           MONGO_URI=$(aws secretsmanager get-secret-value \
             --secret-id group-ops/mongodb \
             --query 'SecretString' \
             --output text)
+
+          # Debug: Check the first few characters (safely)
+          echo "URI starts with: ${MONGO_URI:0:10}..."
+
+          # Remove any surrounding quotes if present
+          MONGO_URI=$(echo "$MONGO_URI" | sed 's/^"\(.*\)"$/\1/')
+
+          # Verify it starts with mongodb
+          if [[ ! "$MONGO_URI" =~ ^mongodb(\+srv)?:// ]]; then
+            echo "ERROR: MongoDB URI does not start with mongodb:// or mongodb+srv://"
+            echo "First 20 chars: ${MONGO_URI:0:20}"
+            exit 1
+          fi
+
           echo "::add-mask::$MONGO_URI"
           echo "MONGO_URI=$MONGO_URI" >> $GITHUB_OUTPUT
 
       - name: Run migration dry-run
         run: |
+          # Debug: Check if MONGODB_URI is set
+          if [ -z "$MONGODB_URI" ]; then
+            echo "ERROR: MONGODB_URI is not set"
+            exit 1
+          fi
+          echo "MONGODB_URI is set and starts with: ${MONGODB_URI:0:10}..."
           npm run migrate:dry-run
         env:
           MONGODB_URI: ${{ steps.get-mongo-uri.outputs.MONGO_URI }}
