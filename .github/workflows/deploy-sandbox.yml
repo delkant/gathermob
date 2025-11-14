@@ -203,30 +203,19 @@ jobs:
       - name: Get MongoDB connection string
         id: get-mongo-uri
         run: |
-          # Get the secret value (it's stored as JSON)
-          SECRET_JSON=$(aws secretsmanager get-secret-value \
+          # Get the secret value (now stored as plain text)
+          MONGO_URI=$(aws secretsmanager get-secret-value \
             --secret-id group-ops/mongodb \
             --query 'SecretString' \
             --output text)
 
-          # Parse the JSON to extract connectionString
-          MONGO_URI=$(echo "$SECRET_JSON" | jq -r '.connectionString')
-
-          # Verify the URI was extracted properly
-          if [ "$MONGO_URI" == "null" ] || [ -z "$MONGO_URI" ]; then
-            echo "ERROR: Failed to extract connectionString from secret"
-            echo "Secret contains: $(echo "$SECRET_JSON" | head -c 50)..."
-            exit 1
-          fi
-
           # Verify it starts with mongodb
           if [[ ! "$MONGO_URI" =~ ^mongodb(\+srv)?:// ]]; then
             echo "ERROR: MongoDB URI does not start with mongodb:// or mongodb+srv://"
-            echo "First 20 chars: ${MONGO_URI:0:20}"
             exit 1
           fi
 
-          echo "MongoDB URI successfully retrieved and validated"
+          echo "MongoDB URI successfully retrieved"
           echo "::add-mask::$MONGO_URI"
           echo "MONGO_URI=$MONGO_URI" >> $GITHUB_OUTPUT
 
