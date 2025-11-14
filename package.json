@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json && npm run copy-assets && npm run package-lambdas",
-    "copy-assets": "cp src/api/schema.graphql dist/api/",
-    "package-lambdas": "npm run package-graphql && npm run package-auth",
+    "copy-assets": "mkdir -p dist/api && cp src/api/schema.graphql dist/api/",
+    "package-lambdas": "mkdir -p dist/lambdas && npm run package-graphql && npm run package-auth",
     "package-graphql": "cd dist/api && zip -r ../lambdas/graphql.zip . -x '*.ts' -x '*.map'",
     "package-auth": "cd dist/auth && zip -r ../lambdas/auth.zip . -x '*.ts' -x '*.map'",
     "migrate:dry-run": "ts-node infra/scripts/migration-runner.ts --dry-run",
