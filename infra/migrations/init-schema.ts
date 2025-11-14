@@ -5,7 +5,7 @@
  * PRD Reference: v0.3
  */
 
-import { Db, Collection, IndexDescription } from 'mongodb';
+import { Db } from 'mongodb';
 
 export interface Migration {
   id: string;

@@ -32,47 +32,65 @@ async function getMongoClient(): Promise<MongoClient> {
 const dateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
   description: 'DateTime custom scalar type',
-  serialize(value: any) {
+  serialize(value: unknown) {
     if (value instanceof Date) {
       return value.toISOString();
     }
-    return value;
+    if (typeof value === 'string' || typeof value === 'number') {
+      return new Date(value).toISOString();
+    }
+    return null;
   },
-  parseValue(value: any) {
-    return new Date(value);
+  parseValue(value: unknown) {
+    if (typeof value === 'string' || typeof value === 'number') {
+      return new Date(value);
+    }
+    return null;
   },
   parseLiteral(ast) {
     if (ast.kind === Kind.STRING) {
       return new Date(ast.value);
     }
     return null;
-  },
+  }
 });
 
 const objectIdScalar = new GraphQLScalarType({
   name: 'ObjectId',
   description: 'MongoDB ObjectId scalar type',
-  serialize(value: any) {
-    return value.toString();
+  serialize(value: unknown) {
+    if (value instanceof ObjectId) {
+      return value.toString();
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (value && typeof value === 'object' && 'toString' in value) {
+      return String((value as { toString(): string }).toString());
+    }
+    return null;
   },
-  parseValue(value: any) {
-    return value;
+  parseValue(value: unknown) {
+    if (typeof value === 'string') {
+      return value;
+    }
+    return null;
   },
   parseLiteral(ast) {
     if (ast.kind === Kind.STRING) {
       return ast.value;
     }
     return null;
-  },
+  }
 });
 
 const jsonScalar = new GraphQLScalarType({
   name: 'JSON',
   description: 'JSON scalar type',
-  serialize(value: any) {
+  serialize(value: unknown) {
     return value;
   },
-  parseValue(value: any) {
+  parseValue(value: unknown) {
     return value;
   },
   parseLiteral(ast) {
@@ -80,7 +98,7 @@ const jsonScalar = new GraphQLScalarType({
       return ast;
     }
     return null;
-  },
+  }
 });
 
 // Resolvers
@@ -114,7 +132,7 @@ const resolvers = {
     },
 
     // User queries (stub implementations)
-    me: async (_parent: any, _args: any, _context: any) => {
+    me: (_parent: any, _args: any, _context: any) => {
       // TODO: Implement with JWT auth
       return null;
     },
@@ -161,10 +179,12 @@ const resolvers = {
         const query = args.id
           ? { _id: new ObjectId(args.id) }
           : args.slug
-          ? { slug: args.slug }
-          : null;
+            ? { slug: args.slug }
+            : null;
 
-        if (!query) return null;
+        if (!query) {
+          return null;
+        }
         return await db.collection('organizations').findOne(query);
       } catch (error) {
         console.error('Error fetching organization:', error);
@@ -193,7 +213,7 @@ const resolvers = {
       };
     },
 
-    myOrganizations: async (_parent: any, _args: any, _context: any) => {
+    myOrganizations: (_parent: any, _args: any, _context: any) => {
       // TODO: Implement with auth context
       return [];
     },
@@ -232,7 +252,7 @@ const resolvers = {
       };
     },
 
-    searchEvents: async (_parent: any, _args: { query: string; filters?: any }) => {
+    searchEvents: (_parent: any, _args: { query: string; filters?: any }) => {
       // TODO: Implement Atlas Search
       return {
         edges: [],
@@ -250,13 +270,13 @@ const resolvers = {
 
   Mutation: {
     // Auth mutations (stub implementations)
-    requestOTP: async (_parent: any, args: { input: { phoneNumber: string } }) => {
+    requestOTP: (_parent: any, args: { input: { phoneNumber: string } }) => {
       // TODO: Integrate with Twilio
       console.log(`OTP requested for ${args.input.phoneNumber}`);
       return { success: true, message: 'OTP sent successfully' };
     },
 
-    verifyOTP: async (_parent: any, args: { input: { phoneNumber: string; otp: string } }) => {
+    verifyOTP: (_parent: any, args: { input: { phoneNumber: string; otp: string } }) => {
       // TODO: Implement OTP verification
       if (args.input.otp.match(/^\d{6}$/)) {
         return {
@@ -337,7 +357,7 @@ const resolvers = {
     },
 
     // RSVP mutations (stub implementations)
-    createRSVP: async (_parent: any, args: { input: { eventId: string } }) => {
+    createRSVP: (_parent: any, args: { input: { eventId: string } }) => {
       const rsvp = {
         id: new Date().getTime().toString(),
         eventId: args.input.eventId,
@@ -348,7 +368,7 @@ const resolvers = {
       return rsvp;
     },
 
-    updateRSVP: async (_parent: any, args: { id: string; status: string }) => {
+    updateRSVP: (_parent: any, args: { id: string; status: string }) => {
       return {
         id: args.id,
         status: args.status,
@@ -356,7 +376,7 @@ const resolvers = {
       };
     },
 
-    cancelRSVP: async (_parent: any, args: { id: string }) => {
+    cancelRSVP: (_parent: any, args: { id: string }) => {
       return {
         id: args.id,
         status: 'CANCELLED',
@@ -370,7 +390,7 @@ const resolvers = {
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  introspection: true, // Enable introspection for all environments
+  introspection: true // Enable introspection for all environments
 });
 
 // Create and export Lambda handler

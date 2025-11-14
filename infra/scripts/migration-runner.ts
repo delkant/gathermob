@@ -10,12 +10,13 @@
 import { MongoClient, Db } from 'mongodb';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Command } from 'commander';
-import * as dotenv from 'dotenv';
-import chalk from 'chalk';
+// Optional dependencies - comment out if not installed
+// import { Command } from 'commander';
+// import * as dotenv from 'dotenv';
+// import chalk from 'chalk';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables if dotenv available
+// dotenv?.config();
 
 // ========================================
 // TYPES
@@ -37,14 +38,15 @@ interface MigrationRecord {
   error?: string;
 }
 
-interface AtlasSearchIndex {
-  name: string;
-  collection: string;
-  mappings: any;
-  analyzers?: any[];
-  synonyms?: any[];
-  storedSource?: any;
-}
+// Unused for now, keeping for future reference
+// interface AtlasSearchIndex {
+//   name: string;
+//   collection: string;
+//   mappings: any;
+//   analyzers?: any[];
+//   synonyms?: any[];
+//   storedSource?: any;
+// }
 
 // ========================================
 // MIGRATION RUNNER CLASS
@@ -118,7 +120,9 @@ class MigrationRunner {
    * Get applied migrations from database
    */
   async getAppliedMigrations(): Promise<MigrationRecord[]> {
-    if (!this.db) throw new Error('Database not connected');
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
 
     const collection = this.db.collection<MigrationRecord>('migrations');
     return await collection
@@ -131,7 +135,9 @@ class MigrationRunner {
    * Run pending migrations
    */
   async up(dryRun: boolean = false): Promise<void> {
-    if (!this.db) throw new Error('Database not connected');
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
 
     console.log(chalk.blue(`Running migrations ${dryRun ? '(DRY RUN)' : ''}...`));
 
@@ -202,7 +208,9 @@ class MigrationRunner {
    * Rollback last migration
    */
   async down(count: number = 1): Promise<void> {
-    if (!this.db) throw new Error('Database not connected');
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
 
     console.log(chalk.blue(`Rolling back ${count} migration(s)...`));
 
@@ -248,7 +256,9 @@ class MigrationRunner {
    * Show migration status
    */
   async status(): Promise<void> {
-    if (!this.db) throw new Error('Database not connected');
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
 
     console.log(chalk.blue('Migration Status\n'));
 
@@ -288,7 +298,9 @@ class MigrationRunner {
    * Sync Atlas Search indexes
    */
   async syncSearchIndexes(dryRun: boolean = false): Promise<void> {
-    if (!this.db) throw new Error('Database not connected');
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
 
     console.log(chalk.blue(`Syncing Atlas Search indexes ${dryRun ? '(DRY RUN)' : ''}...`));
 
@@ -325,7 +337,9 @@ class MigrationRunner {
    * Reset database (dangerous!)
    */
   async reset(): Promise<void> {
-    if (!this.db) throw new Error('Database not connected');
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
 
     console.log(chalk.red.bold('\n⚠️  WARNING: This will drop all collections!'));
     console.log(chalk.red('This action cannot be undone.\n'));
@@ -335,7 +349,9 @@ class MigrationRunner {
     const collections = await this.db.listCollections().toArray();
 
     for (const collection of collections) {
-      if (collection.name.startsWith('system.')) continue;
+      if (collection.name.startsWith('system.')) {
+        continue;
+      }
 
       console.log(chalk.red(`Dropping collection: ${collection.name}`));
       await this.db.dropCollection(collection.name);
