@@ -393,10 +393,18 @@ exports.migration = {
                 }
             }
         });
-        await safeCreateIndexes(migrations, [
-            { key: { id: 1 }, unique: true },
-            { key: { appliedAt: -1 } }
-        ]);
+        // Only create indexes if the collection is empty (first time setup)
+        // If there are existing documents, the migration runner has already been using it
+        const migrationCount = await migrations.countDocuments();
+        if (migrationCount === 0) {
+            await safeCreateIndexes(migrations, [
+                { key: { id: 1 }, unique: true },
+                { key: { appliedAt: -1 } }
+            ]);
+        }
+        else {
+            console.log(`Migrations collection already has ${migrationCount} documents, skipping index creation`);
+        }
         console.log('Migration 001_init_schema completed successfully');
     },
     async down(db) {
