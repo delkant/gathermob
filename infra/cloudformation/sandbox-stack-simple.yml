@@ -130,7 +130,8 @@ Resources:
     Properties:
       ApiId: !Ref ApiGateway
       IntegrationType: AWS_PROXY
-      IntegrationUri: !GetAtt GraphQLFunction.Arn
+      IntegrationUri: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${GraphQLFunction}'
+      IntegrationMethod: POST
       PayloadFormatVersion: '2.0'
 
   AuthIntegration:
@@ -138,7 +139,8 @@ Resources:
     Properties:
       ApiId: !Ref ApiGateway
       IntegrationType: AWS_PROXY
-      IntegrationUri: !GetAtt AuthFunction.Arn
+      IntegrationUri: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AuthFunction}'
+      IntegrationMethod: POST
       PayloadFormatVersion: '2.0'
 
   GraphQLRoute:
