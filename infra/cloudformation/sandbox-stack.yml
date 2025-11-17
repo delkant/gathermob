@@ -24,25 +24,25 @@ Parameters:
     Type: String
     NoEcho: true
     Description: MongoDB Atlas connection string
-    Default: '{{resolve:secretsmanager:group-ops/mongodb:SecretString:connectionString}}'
+    Default: '{{resolve:secretsmanager:group-ops/mongodb:SecretString}}'
 
   JWTSecret:
     Type: String
     NoEcho: true
     Description: JWT signing secret
-    Default: '{{resolve:secretsmanager:group-ops/jwt:SecretString:secret}}'
+    Default: 'temp-jwt-secret-change-me'
 
   TwilioAccountSid:
     Type: String
     NoEcho: true
     Description: Twilio Account SID
-    Default: '{{resolve:secretsmanager:group-ops/twilio:SecretString:accountSid}}'
+    Default: 'not-configured'
 
   TwilioAuthToken:
     Type: String
     NoEcho: true
     Description: Twilio Auth Token
-    Default: '{{resolve:secretsmanager:group-ops/twilio:SecretString:authToken}}'
+    Default: 'not-configured'
 
   DomainName:
     Type: String
