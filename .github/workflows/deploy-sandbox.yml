@@ -349,31 +349,39 @@ jobs:
         run: |
           BUCKET_NAME="group-ops-lambda-${{ env.ENVIRONMENT }}-${{ github.repository_owner }}"
 
+          # Lambda function names match the CloudFormation template pattern
+          GRAPHQL_FUNCTION="group-ops-graphql-${{ env.ENVIRONMENT }}"
+          AUTH_FUNCTION="group-ops-auth-${{ env.ENVIRONMENT }}"
+
           # Update GraphQL Lambda
           aws lambda update-function-code \
-            --function-name ${{ env.STACK_NAME }}-graphql \
+            --function-name ${GRAPHQL_FUNCTION} \
             --s3-bucket ${BUCKET_NAME} \
             --s3-key graphql.zip \
             --publish
 
           # Wait for update to complete
           aws lambda wait function-updated \
-            --function-name ${{ env.STACK_NAME }}-graphql
+            --function-name ${GRAPHQL_FUNCTION}
 
           # Update Auth Lambda
           aws lambda update-function-code \
-            --function-name ${{ env.STACK_NAME }}-auth \
+            --function-name ${AUTH_FUNCTION} \
             --s3-bucket ${BUCKET_NAME} \
             --s3-key auth.zip \
             --publish
 
           # Wait for update to complete
           aws lambda wait function-updated \
-            --function-name ${{ env.STACK_NAME }}-auth
+            --function-name ${AUTH_FUNCTION}
 
           # Update environment variable with build version
           aws lambda update-function-configuration \
-            --function-name ${{ env.STACK_NAME }}-graphql \
+            --function-name ${GRAPHQL_FUNCTION} \
+            --environment "Variables={BUILD_VERSION=${{ github.sha }}}"
+
+          aws lambda update-function-configuration \
+            --function-name ${AUTH_FUNCTION} \
             --environment "Variables={BUILD_VERSION=${{ github.sha }}}"
 
   # ========================================
