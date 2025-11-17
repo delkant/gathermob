@@ -309,6 +309,19 @@ jobs:
 
       - name: Deploy CloudFormation stack
         run: |
+          # Check if stack exists and is in a failed state
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query 'Stacks[0].StackStatus' \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [[ "$STACK_STATUS" == "ROLLBACK_FAILED" || "$STACK_STATUS" == "CREATE_FAILED" || "$STACK_STATUS" == "DELETE_FAILED" ]]; then
+            echo "Stack is in failed state: $STACK_STATUS. Deleting..."
+            aws cloudformation delete-stack --stack-name ${{ env.STACK_NAME }}
+            aws cloudformation wait stack-delete-complete --stack-name ${{ env.STACK_NAME }} || true
+          fi
+
+          # Deploy the stack
           aws cloudformation deploy \
             --template-file infra/cloudformation/sandbox-stack-simple.yml \
             --stack-name ${{ env.STACK_NAME }} \
