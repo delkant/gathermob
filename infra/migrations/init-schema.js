@@ -1,12 +1,51 @@
 "use strict";
+/**
+ * File: /infra/migrations/init-schema.ts
+ * Description: Initial database schema and index creation migration
+ * Generated: 2025-10-28
+ * PRD Reference: v0.3
+ */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.migration = void 0;
+/**
+ * Initial schema migration for Group Ops Platform
+ * Creates all required collections and indexes for Phase 1
+ */
 exports.migration = {
     id: '001_init_schema',
     description: 'Create initial collections and indexes',
     async up(db) {
         console.log('Running migration: 001_init_schema - UP');
-        const users = await db.createCollection('users', {
+        // Get existing collections
+        const existingCollections = await db.listCollections().toArray();
+        const collectionNames = existingCollections.map(c => c.name);
+        // Helper function to safely create collection
+        const safeCreateCollection = async (name, options) => {
+            if (collectionNames.includes(name)) {
+                console.log(`Collection ${name} already exists, skipping creation`);
+                return db.collection(name);
+            }
+            return await db.createCollection(name, options);
+        };
+        // Helper function to safely create indexes
+        const safeCreateIndexes = async (collection, indexes) => {
+            try {
+                await collection.createIndexes(indexes);
+            }
+            catch (error) {
+                if (error.code === 86 || error.code === 85) {
+                    // Index already exists or duplicate index
+                    console.log(`Indexes for ${collection.collectionName} already exist, skipping`);
+                }
+                else {
+                    throw error;
+                }
+            }
+        };
+        // ========================================
+        // USERS COLLECTION
+        // ========================================
+        const users = await safeCreateCollection('users', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -52,13 +91,16 @@ exports.migration = {
                 }
             }
         });
-        await users.createIndexes([
+        await safeCreateIndexes(users, [
             { key: { email: 1 }, unique: true, sparse: true },
             { key: { phone: 1 }, unique: true },
             { key: { createdAt: -1 } },
             { key: { lastActiveAt: -1 } }
         ]);
-        const organizations = await db.createCollection('organizations', {
+        // ========================================
+        // ORGANIZATIONS COLLECTION
+        // ========================================
+        const organizations = await safeCreateCollection('organizations', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -97,12 +139,15 @@ exports.migration = {
                 }
             }
         });
-        await organizations.createIndexes([
+        await safeCreateIndexes(organizations, [
             { key: { slug: 1 }, unique: true },
             { key: { name: 'text' } },
             { key: { createdAt: -1 } }
         ]);
-        const memberships = await db.createCollection('memberships', {
+        // ========================================
+        // MEMBERSHIPS COLLECTION
+        // ========================================
+        const memberships = await safeCreateCollection('memberships', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -123,13 +168,16 @@ exports.migration = {
                 }
             }
         });
-        await memberships.createIndexes([
+        await safeCreateIndexes(memberships, [
             { key: { userId: 1, organizationId: 1 }, unique: true },
             { key: { organizationId: 1, status: 1 } },
             { key: { userId: 1, status: 1 } },
             { key: { joinedAt: -1 } }
         ]);
-        const events = await db.createCollection('events', {
+        // ========================================
+        // EVENTS COLLECTION
+        // ========================================
+        const events = await safeCreateCollection('events', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -194,7 +242,7 @@ exports.migration = {
                 }
             }
         });
-        await events.createIndexes([
+        await safeCreateIndexes(events, [
             { key: { organizationId: 1, startTime: -1 } },
             { key: { startTime: 1, status: 1 } },
             { key: { status: 1, visibility: 1 } },
@@ -203,7 +251,10 @@ exports.migration = {
             { key: { 'location.coordinates': '2dsphere' }, sparse: true },
             { key: { createdAt: -1 } }
         ]);
-        const rsvps = await db.createCollection('rsvps', {
+        // ========================================
+        // RSVPS COLLECTION
+        // ========================================
+        const rsvps = await safeCreateCollection('rsvps', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -223,13 +274,16 @@ exports.migration = {
                 }
             }
         });
-        await rsvps.createIndexes([
+        await safeCreateIndexes(rsvps, [
             { key: { userId: 1, eventId: 1 }, unique: true },
             { key: { eventId: 1, status: 1 } },
             { key: { userId: 1, status: 1 } },
             { key: { createdAt: -1 } }
         ]);
-        const attendance = await db.createCollection('attendance', {
+        // ========================================
+        // ATTENDANCE COLLECTION
+        // ========================================
+        const attendance = await safeCreateCollection('attendance', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -251,13 +305,16 @@ exports.migration = {
                 }
             }
         });
-        await attendance.createIndexes([
+        await safeCreateIndexes(attendance, [
             { key: { userId: 1, eventId: 1 } },
             { key: { eventId: 1, checkInTime: -1 } },
             { key: { qrCode: 1 }, unique: true },
             { key: { checkInTime: -1 } }
         ]);
-        const wallets = await db.createCollection('wallets', {
+        // ========================================
+        // WALLETS COLLECTION
+        // ========================================
+        const wallets = await safeCreateCollection('wallets', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -276,12 +333,15 @@ exports.migration = {
                 }
             }
         });
-        await wallets.createIndexes([
+        await safeCreateIndexes(wallets, [
             { key: { userId: 1 }, unique: true },
             { key: { status: 1 } },
             { key: { createdAt: -1 } }
         ]);
-        const transactions = await db.createCollection('transactions', {
+        // ========================================
+        // TRANSACTIONS COLLECTION
+        // ========================================
+        const transactions = await safeCreateCollection('transactions', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -306,13 +366,16 @@ exports.migration = {
                 }
             }
         });
-        await transactions.createIndexes([
+        await safeCreateIndexes(transactions, [
             { key: { walletId: 1, createdAt: -1 } },
             { key: { eventId: 1, status: 1 } },
             { key: { status: 1, createdAt: -1 } },
             { key: { createdAt: -1 } }
         ]);
-        const migrations = await db.createCollection('migrations', {
+        // ========================================
+        // MIGRATIONS COLLECTION
+        // ========================================
+        const migrations = await safeCreateCollection('migrations', {
             validator: {
                 $jsonSchema: {
                     bsonType: 'object',
@@ -330,7 +393,7 @@ exports.migration = {
                 }
             }
         });
-        await migrations.createIndexes([
+        await safeCreateIndexes(migrations, [
             { key: { id: 1 }, unique: true },
             { key: { appliedAt: -1 } }
         ]);
@@ -338,6 +401,7 @@ exports.migration = {
     },
     async down(db) {
         console.log('Running migration: 001_init_schema - DOWN');
+        // Drop all collections in reverse order
         const collections = [
             'migrations',
             'transactions',
@@ -355,7 +419,7 @@ exports.migration = {
                 console.log(`Dropped collection: ${collectionName}`);
             }
             catch (error) {
-                if (error.code !== 26) {
+                if (error.code !== 26) { // Collection doesn't exist
                     throw error;
                 }
             }
@@ -364,4 +428,3 @@ exports.migration = {
     }
 };
 exports.default = exports.migration;
-//# sourceMappingURL=init-schema.js.map

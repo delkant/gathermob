@@ -102,7 +102,7 @@ export const migration: Migration = {
       }
     });
 
-    await safeCreateIndexes(users,([
+    await safeCreateIndexes(users, [
       { key: { email: 1 }, unique: true, sparse: true },
       { key: { phone: 1 }, unique: true },
       { key: { createdAt: -1 } },
