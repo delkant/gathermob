@@ -327,7 +327,7 @@ jobs:
             --stack-name ${{ env.STACK_NAME }} \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
-            --capabilities CAPABILITY_IAM \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset \
             --tags \
               Environment=${{ env.ENVIRONMENT }} \
