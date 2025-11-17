@@ -130,9 +130,7 @@ Resources:
     Properties:
       ApiId: !Ref ApiGateway
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub
-        - 'arn:aws:apigatewayv2:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations'
-        - FunctionArn: !GetAtt GraphQLFunction.Arn
+      IntegrationUri: !GetAtt GraphQLFunction.Arn
       PayloadFormatVersion: '2.0'
 
   AuthIntegration:
@@ -140,9 +138,7 @@ Resources:
     Properties:
       ApiId: !Ref ApiGateway
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub
-        - 'arn:aws:apigatewayv2:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations'
-        - FunctionArn: !GetAtt AuthFunction.Arn
+      IntegrationUri: !GetAtt AuthFunction.Arn
       PayloadFormatVersion: '2.0'
 
   GraphQLRoute:
