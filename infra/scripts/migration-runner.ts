@@ -94,7 +94,7 @@ class MigrationRunner {
   async loadMigrations(): Promise<Migration[]> {
     const migrations: Migration[] = [];
     const files = fs.readdirSync(this.migrationsPath)
-      .filter(f => f.endsWith('.ts') || f.endsWith('.js'))
+      .filter(f => (f.endsWith('.ts') || f.endsWith('.js')) && !f.endsWith('.d.ts'))
       .sort();
 
     for (const file of files) {
