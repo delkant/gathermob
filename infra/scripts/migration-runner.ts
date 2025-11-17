@@ -123,6 +123,12 @@ class MigrationRunner {
       throw new Error('Database not connected');
     }
 
+    // Check if migrations collection exists
+    const collections = await this.db.listCollections({ name: 'migrations' }).toArray();
+    if (collections.length === 0) {
+      return []; // No migrations applied yet
+    }
+
     const collection = this.db.collection<MigrationRecord>('migrations');
     return await collection
       .find({ status: 'APPLIED' })
@@ -164,13 +170,33 @@ class MigrationRunner {
 
       const collection = this.db.collection<MigrationRecord>('migrations');
 
-      // Mark as running
-      await collection.insertOne({
-        id: migration.id,
-        description: migration.description,
-        appliedAt: new Date(),
-        status: 'RUNNING'
-      });
+      // Check if migration already exists (e.g., from a previous failed run)
+      const existing = await collection.findOne({ id: migration.id });
+
+      if (existing) {
+        if (existing.status === 'APPLIED') {
+          console.log(chalk.yellow(`⚠ Migration ${migration.id} already applied, skipping`));
+          continue;
+        }
+        // Update existing record to RUNNING
+        await collection.updateOne(
+          { id: migration.id },
+          {
+            $set: {
+              status: 'RUNNING',
+              appliedAt: new Date()
+            }
+          }
+        );
+      } else {
+        // Mark as running
+        await collection.insertOne({
+          id: migration.id,
+          description: migration.description,
+          appliedAt: new Date(),
+          status: 'RUNNING'
+        });
+      }
 
       try {
         // Run migration
