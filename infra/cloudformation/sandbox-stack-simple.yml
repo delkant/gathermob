@@ -1,0 +1,210 @@
+# Simplified CloudFormation stack for Group Ops Platform sandbox environment
+# Without VPC - using MongoDB Atlas cloud service
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Group Ops Platform - Sandbox Environment (Simplified)'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: sandbox
+    Description: Environment name
+
+  MongoDBConnectionString:
+    Type: String
+    NoEcho: true
+    Description: MongoDB Atlas connection string
+    Default: '{{resolve:secretsmanager:group-ops/mongodb:SecretString}}'
+
+  JWTSecret:
+    Type: String
+    NoEcho: true
+    Description: JWT signing secret
+    Default: '{{resolve:secretsmanager:group-ops/jwt:SecretString:secret}}'
+
+Resources:
+  # ========================================
+  # IAM ROLES
+  # ========================================
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'group-ops-lambda-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:group-ops/*'
+
+  # ========================================
+  # LAMBDA FUNCTIONS
+  # ========================================
+
+  GraphQLFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'group-ops-graphql-${Environment}'
+      Runtime: nodejs18.x
+      Handler: graphql-handler.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          NODE_ENV: !Ref Environment
+          MONGODB_URI: !Ref MongoDBConnectionString
+          JWT_SECRET: !Ref JWTSecret
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              statusCode: 200,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: 'GraphQL endpoint - code will be deployed by CI/CD' })
+            };
+          };
+
+  AuthFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'group-ops-auth-${Environment}'
+      Runtime: nodejs18.x
+      Handler: otp-handler.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          NODE_ENV: !Ref Environment
+          MONGODB_URI: !Ref MongoDBConnectionString
+          JWT_SECRET: !Ref JWTSecret
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              statusCode: 200,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: 'Auth endpoint - code will be deployed by CI/CD' })
+            };
+          };
+
+  # ========================================
+  # API GATEWAY
+  # ========================================
+
+  ApiGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub 'group-ops-api-${Environment}'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - '*'
+        MaxAge: 86400
+
+  GraphQLIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - 'arn:aws:apigatewayv2:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations'
+        - FunctionArn: !GetAtt GraphQLFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  AuthIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - 'arn:aws:apigatewayv2:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations'
+        - FunctionArn: !GetAtt AuthFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  GraphQLRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'POST /graphql'
+      Target: !Sub 'integrations/${GraphQLIntegration}'
+
+  HealthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'GET /health'
+      Target: !Sub 'integrations/${GraphQLIntegration}'
+
+  AuthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'POST /auth/otp'
+      Target: !Sub 'integrations/${AuthIntegration}'
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ApiGateway
+      StageName: !Ref Environment
+      AutoDeploy: true
+
+  # Lambda Permissions for API Gateway
+  GraphQLFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GraphQLFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*'
+
+  AuthFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AuthFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*'
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiEndpoint'
+
+  GraphQLFunctionArn:
+    Description: GraphQL Lambda Function ARN
+    Value: !GetAtt GraphQLFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-GraphQLFunctionArn'
+
+  AuthFunctionArn:
+    Description: Auth Lambda Function ARN
+    Value: !GetAtt AuthFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-AuthFunctionArn'

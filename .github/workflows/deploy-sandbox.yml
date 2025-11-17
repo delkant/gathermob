@@ -305,12 +305,12 @@ jobs:
       - name: Validate CloudFormation template
         run: |
           aws cloudformation validate-template \
-            --template-body file://infra/cloudformation/sandbox-stack.yml
+            --template-body file://infra/cloudformation/sandbox-stack-simple.yml
 
       - name: Deploy CloudFormation stack
         run: |
           aws cloudformation deploy \
-            --template-file infra/cloudformation/sandbox-stack.yml \
+            --template-file infra/cloudformation/sandbox-stack-simple.yml \
             --stack-name ${{ env.STACK_NAME }} \
             --parameter-overrides \
               Environment=${{ env.ENVIRONMENT }} \
