@@ -30,19 +30,19 @@ Parameters:
     Type: String
     NoEcho: true
     Description: JWT signing secret
-    Default: 'temp-jwt-secret-change-me'
+    Default: '{{resolve:secretsmanager:group-ops/jwt:SecretString:secret}}'
 
   TwilioAccountSid:
     Type: String
     NoEcho: true
     Description: Twilio Account SID
-    Default: 'not-configured'
+    Default: '{{resolve:secretsmanager:group-ops/twilio:SecretString:accountSid}}'
 
   TwilioAuthToken:
     Type: String
     NoEcho: true
     Description: Twilio Auth Token
-    Default: 'not-configured'
+    Default: '{{resolve:secretsmanager:group-ops/twilio:SecretString:authToken}}'
 
   DomainName:
     Type: String
