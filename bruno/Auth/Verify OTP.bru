@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/auth/otp
+  url: {{baseUrl}}/auth/verify
   body: json
   auth: none
 }
@@ -16,15 +16,14 @@ headers {
 
 body:json {
   {
-    "action": "verify",
     "phoneNumber": "{{phoneNumber}}",
-    "code": "123456"
+    "otp": "123456"
   }
 }
 
 script:post-response {
-  if (res.status === 200 && res.body.token) {
-    bru.setVar("authToken", res.body.token);
-    console.log("Token saved to authToken variable");
+  if (res.status === 200 && res.body.accessToken) {
+    bru.setVar("authToken", res.body.accessToken);
+    console.log("Access token saved to authToken variable");
   }
 }

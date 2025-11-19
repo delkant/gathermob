@@ -194,38 +194,61 @@ All components must be fully typed with TypeScript.
 POST `/auth/otp`
 ```json
 {
-  "action": "send",
-  "phoneNumber": "+1234567890"
+  "phoneNumber": "+15555555555"
 }
 ```
-Response:
+Response (Success - 200):
 ```json
 {
   "success": true,
-  "message": "OTP sent"
+  "message": "OTP sent successfully",
+  "otp": "123456"  // Only included in sandbox environment for testing
+}
+```
+Response (Error - 400):
+```json
+{
+  "success": false,
+  "error": "Invalid phone number format. Use E.164 format (e.g., +1234567890)"
 }
 ```
 
 ## 8.2 Verify OTP
-POST `/auth/otp`
+POST `/auth/verify`
 ```json
 {
-  "action": "verify",
-  "phoneNumber": "+1234567890",
-  "code": "123456"
+  "phoneNumber": "+15555555555",
+  "otp": "123456"
 }
 ```
-Response:
+Response (Success - 200):
 ```json
 {
-  "token": "jwt-token",
+  "success": true,
   "user": {
-    "id": "user-id",
-    "phone": "+1234567890"
-  }
+    "id": "507f1f77bcf86cd799439011",
+    "phone": "+15555555555",
+    "name": null,
+    "role": "USER"
+  },
+  "accessToken": "base64-encoded-jwt",
+  "refreshToken": "base64-encoded-refresh-token"
 }
 ```
-Backend sets HttpOnly cookie.
+Response (Error - 401):
+```json
+{
+  "success": false,
+  "error": "Invalid OTP"
+}
+```
+Response (Error - 429):
+```json
+{
+  "success": false,
+  "error": "Too many attempts. Please request a new OTP"
+}
+```
 
 ---
 
