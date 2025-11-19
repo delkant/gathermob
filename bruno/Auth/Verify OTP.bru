@@ -1,0 +1,30 @@
+meta {
+  name: Verify OTP
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/otp
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "action": "verify",
+    "phoneNumber": "{{phoneNumber}}",
+    "code": "123456"
+  }
+}
+
+script:post-response {
+  if (res.status === 200 && res.body.token) {
+    bru.setVar("authToken", res.body.token);
+    console.log("Token saved to authToken variable");
+  }
+}

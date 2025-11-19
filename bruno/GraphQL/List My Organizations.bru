@@ -1,0 +1,38 @@
+meta {
+  name: List My Organizations
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/graphql
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:graphql {
+  query myOrganizations {
+    myOrganizations {
+      items {
+        id
+        name
+        slug
+        description
+        logo
+        memberCount
+        role
+        joinedAt
+      }
+      total
+      hasMore
+    }
+  }
+}

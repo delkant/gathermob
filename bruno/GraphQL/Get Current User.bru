@@ -1,0 +1,35 @@
+meta {
+  name: Get Current User
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/graphql
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:graphql {
+  query me {
+    me {
+      id
+      phone
+      name
+      email
+      role
+      avatar
+      bio
+      createdAt
+      lastActiveAt
+    }
+  }
+}

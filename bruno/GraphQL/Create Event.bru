@@ -1,0 +1,75 @@
+meta {
+  name: Create Event
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/graphql
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:graphql {
+  mutation createEvent($input: CreateEventInput!) {
+    createEvent(input: $input) {
+      id
+      organizationId
+      title
+      description
+      startTime
+      endTime
+      location {
+        name
+        address
+        city
+        state
+        country
+        postalCode
+        latitude
+        longitude
+      }
+      virtualLink
+      capacity
+      price
+      currency
+      status
+      visibility
+      tags
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "organizationId": "org-id-here",
+      "title": "Community Meetup",
+      "description": "Monthly community gathering",
+      "startTime": "2025-12-01T18:00:00Z",
+      "endTime": "2025-12-01T20:00:00Z",
+      "location": {
+        "name": "Community Center",
+        "address": "123 Main St",
+        "city": "San Francisco",
+        "state": "CA",
+        "country": "USA",
+        "postalCode": "94102"
+      },
+      "capacity": 50,
+      "price": 0,
+      "currency": "USD",
+      "visibility": "PUBLIC",
+      "tags": ["community", "networking", "meetup"]
+    }
+  }
+}

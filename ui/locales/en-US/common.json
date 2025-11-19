@@ -1,0 +1,84 @@
+{
+  "app": {
+    "name": "Group Ops",
+    "description": "Community and event management platform"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "description": "Enter your phone number or email to sign in",
+      "phoneOrEmail": "Phone number or Email",
+      "phonePlaceholder": "(555) 555-5555",
+      "emailPlaceholder": "email@example.com or (555) 555-5555",
+      "sendOtp": "Send OTP",
+      "sendingOtp": "Sending OTP...",
+      "otpSent": "OTP sent successfully! Check your phone.",
+      "sendFailed": "Failed to send OTP. Please try again.",
+      "terms": "By continuing, you agree to our Terms of Service and Privacy Policy"
+    },
+    "verify": {
+      "title": "Verify your identity",
+      "description": "We sent a 6-digit code to {identifier}",
+      "descriptionDefault": "We sent a 6-digit code to your phone",
+      "verificationCode": "Verification Code",
+      "verifyOtp": "Verify OTP",
+      "verifying": "Verifying...",
+      "verified": "Successfully verified! Redirecting...",
+      "invalidOtp": "Invalid OTP. Please try again.",
+      "backToLogin": "Back to login",
+      "resendCode": "Resend code",
+      "resendIn": "Resend in {seconds}s",
+      "resendSuccess": "OTP resent successfully!",
+      "resendFailed": "Failed to resend OTP.",
+      "sessionExpired": "Session expired. Please try again.",
+      "helpText": "Didn't receive the code? Check your spam folder or try resending."
+    },
+    "logout": {
+      "button": "Logout",
+      "success": "Logged out successfully",
+      "failed": "Failed to logout"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome!",
+    "loggedInAs": "Logged in as {identifier}",
+    "authenticated": "You're successfully authenticated",
+    "description": "This is your dashboard. You can now access all protected features of the application."
+  },
+  "organizations": {
+    "title": "Organizations",
+    "description": "Manage your organizations",
+    "helpText": "Create and manage organizations for your groups and communities.",
+    "viewButton": "View Organizations",
+    "createButton": "Create Organization"
+  },
+  "events": {
+    "title": "Events",
+    "upcomingTitle": "Upcoming events",
+    "description": "Browse and manage events in your organizations.",
+    "viewButton": "View Events",
+    "createButton": "Create Event"
+  },
+  "members": {
+    "inviteButton": "Invite Members"
+  },
+  "profile": {
+    "viewButton": "View Profile"
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "description": "Common tasks and features"
+  },
+  "validation": {
+    "required": "This field is required",
+    "phoneOrEmailRequired": "Phone number or email is required",
+    "invalidPhoneOrEmail": "Please enter a valid phone number or email address",
+    "otpLength": "OTP must be 6 digits",
+    "otpNumbers": "OTP must contain only numbers"
+  },
+  "errors": {
+    "generic": "An error occurred. Please try again.",
+    "networkError": "Network error. Please check your connection."
+  }
+}
