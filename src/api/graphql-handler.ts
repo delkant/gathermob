@@ -314,13 +314,13 @@ const resolvers = {
         updatedAt: new Date()
       };
 
-      // Create membership for the creator as OWNER
+      // Create membership for the creator as ADMIN
       const membershipId = new ObjectId();
       const membership = {
         _id: membershipId,
         userId: new ObjectId(context.user.id),
         organizationId: orgId,
-        role: 'OWNER',
+        role: 'ADMIN',
         status: 'ACTIVE',
         permissions: {
           canManageMembers: true,
@@ -355,11 +355,11 @@ const resolvers = {
       const db = client.db('group-ops');
       const orgId = new ObjectId(args.id);
 
-      // Check if user is admin/owner of the organization
+      // Check if user is admin of the organization
       const membership = await db.collection('memberships').findOne({
         userId: new ObjectId(context.user.id),
         organizationId: orgId,
-        role: { $in: ['ADMIN', 'OWNER'] },
+        role: 'ADMIN',
         status: 'ACTIVE'
       });
 
@@ -384,16 +384,16 @@ const resolvers = {
       const db = client.db('group-ops');
       const orgId = new ObjectId(args.id);
 
-      // Only OWNER can delete the organization
+      // Only ADMIN can delete the organization
       const membership = await db.collection('memberships').findOne({
         userId: new ObjectId(context.user.id),
         organizationId: orgId,
-        role: 'OWNER',
+        role: 'ADMIN',
         status: 'ACTIVE'
       });
 
       if (!membership) {
-        throw new Error('Only the owner can delete this organization');
+        throw new Error('Only an admin can delete this organization');
       }
 
       // Delete in transaction
@@ -433,11 +433,11 @@ const resolvers = {
       const db = client.db('group-ops');
       const orgId = new ObjectId(args.organizationId);
 
-      // Check if user is admin/owner
+      // Check if user is admin
       const adminMembership = await db.collection('memberships').findOne({
         userId: new ObjectId(context.user.id),
         organizationId: orgId,
-        role: { $in: ['ADMIN', 'OWNER'] },
+        role: 'ADMIN',
         status: 'ACTIVE'
       });
 
@@ -487,11 +487,11 @@ const resolvers = {
         throw new Error('Membership not found');
       }
 
-      // Check if user is admin/owner
+      // Check if user is admin
       const adminMembership = await db.collection('memberships').findOne({
         userId: new ObjectId(context.user.id),
         organizationId: targetMembership.organizationId,
-        role: { $in: ['ADMIN', 'OWNER'] },
+        role: 'ADMIN',
         status: 'ACTIVE'
       });
 
@@ -499,16 +499,16 @@ const resolvers = {
         throw new Error('You must be an admin to change member roles');
       }
 
-      // Prevent removing the last owner
-      if (targetMembership.role === 'OWNER' && args.role !== 'OWNER') {
-        const ownerCount = await db.collection('memberships').countDocuments({
+      // Prevent removing the last admin
+      if (targetMembership.role === 'ADMIN' && args.role !== 'ADMIN') {
+        const adminCount = await db.collection('memberships').countDocuments({
           organizationId: targetMembership.organizationId,
-          role: 'OWNER',
+          role: 'ADMIN',
           status: 'ACTIVE'
         });
 
-        if (ownerCount <= 1) {
-          throw new Error('Organization must have at least one owner');
+        if (adminCount <= 1) {
+          throw new Error('Organization must have at least one admin');
         }
       }
 
@@ -535,11 +535,11 @@ const resolvers = {
         throw new Error('Membership not found');
       }
 
-      // Check if user is admin/owner
+      // Check if user is admin
       const adminMembership = await db.collection('memberships').findOne({
         userId: new ObjectId(context.user.id),
         organizationId: targetMembership.organizationId,
-        role: { $in: ['ADMIN', 'OWNER'] },
+        role: 'ADMIN',
         status: 'ACTIVE'
       });
 
@@ -547,16 +547,16 @@ const resolvers = {
         throw new Error('You must be an admin to remove members');
       }
 
-      // Prevent removing the last owner
-      if (targetMembership.role === 'OWNER') {
-        const ownerCount = await db.collection('memberships').countDocuments({
+      // Prevent removing the last admin
+      if (targetMembership.role === 'ADMIN') {
+        const adminCount = await db.collection('memberships').countDocuments({
           organizationId: targetMembership.organizationId,
-          role: 'OWNER',
+          role: 'ADMIN',
           status: 'ACTIVE'
         });
 
-        if (ownerCount <= 1) {
-          throw new Error('Cannot remove the last owner of the organization');
+        if (adminCount <= 1) {
+          throw new Error('Cannot remove the last admin of the organization');
         }
       }
 
@@ -584,16 +584,16 @@ const resolvers = {
         throw new Error('You are not a member of this organization');
       }
 
-      // Prevent the last owner from leaving
-      if (membership.role === 'OWNER') {
-        const ownerCount = await db.collection('memberships').countDocuments({
+      // Prevent the last admin from leaving
+      if (membership.role === 'ADMIN') {
+        const adminCount = await db.collection('memberships').countDocuments({
           organizationId: orgId,
-          role: 'OWNER',
+          role: 'ADMIN',
           status: 'ACTIVE'
         });
 
-        if (ownerCount <= 1) {
-          throw new Error('The last owner cannot leave the organization. Transfer ownership or delete the organization instead.');
+        if (adminCount <= 1) {
+          throw new Error('The last admin cannot leave the organization. Transfer admin role or delete the organization instead.');
         }
       }
 

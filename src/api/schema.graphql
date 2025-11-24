@@ -25,7 +25,6 @@ enum MembershipRole {
   MEMBER
   MODERATOR
   ADMIN
-  OWNER
 }
 
 enum MembershipStatus {
