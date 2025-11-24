@@ -1,5 +1,58 @@
 # PRD Changelog
 
+## v0.6 Organization Management System (2024-11-23)
+
+### Added
+- **Organization Management**: Complete CRUD operations for organizations
+- **Role-Based Access Control**: Three-tier role system (ADMIN, MODERATOR, MEMBER)
+- **Member Management**: Invite, remove, and role management capabilities
+- **Permission System**: Backend-enforced permissions with frontend UI respect
+- **UI Implementation**: Full frontend with organization pages and member management
+- **Safety Features**: Last admin protection, transaction-based creation
+- **Documentation**: Comprehensive design docs and updated PRD
+
+### Changed
+- **Role Naming**: Changed OWNER role to ADMIN throughout the system
+- **GraphQL Schema**: Updated MembershipRole enum to remove OWNER
+- **Backend Logic**: All permission checks now use ADMIN role
+- **UI Components**: Added shadcn/ui components (Badge, Tabs, etc.)
+
+### Technical Implementation
+- **Frontend Pages**:
+  - `/organizations` - List view of all organizations
+  - `/organizations/new` - Create organization form
+  - `/organizations/[slug]` - Organization detail with member management
+- **GraphQL Mutations**:
+  - `createOrganization` - Atomic creation with admin membership
+  - `updateMemberRole` - Role changes with validation
+  - `removeMember` - Member removal with last admin check
+  - `deleteOrganization` - Full cascade deletion
+- **Components**:
+  - `OrganizationMembersTable` - Member list with actions
+  - `InviteMemberDialog` - Invitation interface
+  - `CreateOrganizationForm` - Organization creation
+
+### Security & Business Rules
+- Organizations always maintain at least one ADMIN
+- Only ADMINs can manage members and settings
+- Members can self-exclude (leave organization)
+- All mutations validate permissions at resolver level
+- MongoDB transactions ensure data consistency
+
+## v0.5 Frontend Foundation (2024-11-19)
+
+### Added
+- **Next.js 16 UI**: Complete frontend application setup
+- **Phone-Only Auth**: Removed email support, phone-only OTP system
+- **Localization**: Full i18n support with next-intl (en-US)
+- **Apollo Client**: GraphQL client with JWT authentication
+- **UI Components**: shadcn/ui component library integration
+
+### Fixed
+- **Auth Routes**: Corrected Lambda path handling for stage prefixes
+- **User Creation**: Added required name field (using phone as default)
+- **TypeScript**: Fixed component prop definitions
+
 ## v0.4 Sandbox Deployment Hardening (2025-10-28)
 
 ### Added
