@@ -73,7 +73,11 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground mb-4">
                 {t("organizations.helpText")}
               </p>
-              <Button className="w-full" variant="outline">
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => router.push("/organizations")}
+              >
                 {t("organizations.viewButton")}
               </Button>
             </CardContent>
@@ -88,7 +92,11 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground mb-4">
                 {t("events.description")}
               </p>
-              <Button className="w-full" variant="outline">
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => router.push("/events")}
+              >
                 {t("events.viewButton")}
               </Button>
             </CardContent>
@@ -105,16 +113,32 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/organizations")}
+                >
                   {t("organizations.createButton")}
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/events")}
+                >
                   {t("events.createButton")}
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/members")}
+                >
                   {t("members.inviteButton")}
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/profile")}
+                >
                   {t("profile.viewButton")}
                 </Button>
               </div>
