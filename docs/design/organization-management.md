@@ -297,7 +297,43 @@ mutation DeleteOrganization($id: ObjectId!) {
    - All memberships
    - All events
    - All related data
-3. Deletion is permanent and irreversible
+
+## UI Implementation
+
+### Organization Creation Flow
+
+The organization creation process uses a **dialog/popup approach** for better user experience:
+
+1. **Dialog Component** (`CreateOrganizationDialog`)
+   - Modal overlay that appears on top of the current page
+   - No navigation required - user stays in context
+   - Form validation with real-time feedback
+   - Auto-generates URL slug from organization name
+   - On success: closes dialog and refreshes organization list
+
+2. **Dialog Features**
+   - **Trigger**: Customizable button or default "Create Organization" button
+   - **Form Fields**:
+     - Organization Name (required)
+     - URL Slug (auto-generated, editable)
+     - Description (optional)
+     - Visibility settings (Public/Members Only/Invite Only)
+     - Require Approval toggle
+     - Allow Guest RSVP toggle
+   - **Actions**:
+     - Cancel: Closes dialog without saving
+     - Create: Validates, submits, navigates to new organization
+
+3. **Integration Points**
+   - Organizations list page: Dialog in header and empty state
+   - Dashboard: Quick-create button with dialog
+   - Navigation menu: Create button triggers dialog from anywhere
+
+4. **Benefits of Dialog Approach**
+   - **Context Preservation**: User doesn't lose their place
+   - **Faster Workflow**: No page load for creation form
+   - **Better UX**: Immediate feedback and smooth transitions
+   - **Reusable**: Same dialog component used across the app
 
 ### Visibility Settings
 - **PUBLIC**: Anyone can view organization and events

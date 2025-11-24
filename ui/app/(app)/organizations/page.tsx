@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -10,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GET_MY_ORGANIZATIONS } from '@/lib/graphql/organizations';
+import { CreateOrganizationDialog } from '@/components/organizations/create-organization-dialog';
 
 export default function OrganizationsPage() {
   const t = useTranslations();
-  const { data, loading, error } = useQuery(GET_MY_ORGANIZATIONS, {
+  const { data, loading, error, refetch } = useQuery(GET_MY_ORGANIZATIONS, {
     variables: { first: 20 },
   });
 
@@ -62,12 +62,7 @@ export default function OrganizationsPage() {
           <h1 className="text-3xl font-bold tracking-tight">My Organizations</h1>
           <p className="text-muted-foreground mt-2">Manage your organizations and memberships</p>
         </div>
-        <Link href="/organizations/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Organization
-          </Button>
-        </Link>
+        <CreateOrganizationDialog onSuccess={() => refetch()} />
       </div>
 
       {organizations.length === 0 ? (
@@ -77,12 +72,15 @@ export default function OrganizationsPage() {
             <p className="text-muted-foreground mb-6">
               Create your first organization to start hosting events
             </p>
-            <Link href="/organizations/new">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Your First Organization
-              </Button>
-            </Link>
+            <CreateOrganizationDialog
+              trigger={
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Your First Organization
+                </Button>
+              }
+              onSuccess={() => refetch()}
+            />
           </CardContent>
         </Card>
       ) : (
