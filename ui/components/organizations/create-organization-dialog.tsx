@@ -46,12 +46,10 @@ const createOrganizationSchema = z.object({
 type CreateOrganizationFormData = z.infer<typeof createOrganizationSchema>;
 
 interface CreateOrganizationDialogProps {
-  trigger?: React.ReactNode;
   onSuccess?: () => void;
 }
 
 export function CreateOrganizationDialog({
-  trigger,
   onSuccess
 }: CreateOrganizationDialogProps) {
   const router = useRouter();
@@ -132,16 +130,14 @@ export function CreateOrganizationDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Organization
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+    <>
+      <Button type="button" onClick={() => setOpen(true)}>
+        <Plus className="mr-2 h-4 w-4" />
+        Create Organization
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Organization</DialogTitle>
           <DialogDescription>
@@ -314,5 +310,6 @@ export function CreateOrganizationDialog({
         </Form>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

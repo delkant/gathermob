@@ -72,15 +72,7 @@ export default function OrganizationsPage() {
             <p className="text-muted-foreground mb-6">
               Create your first organization to start hosting events
             </p>
-            <CreateOrganizationDialog
-              trigger={
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Your First Organization
-                </Button>
-              }
-              onSuccess={() => refetch()}
-            />
+            <CreateOrganizationDialog onSuccess={() => refetch()} />
           </CardContent>
         </Card>
       ) : (
