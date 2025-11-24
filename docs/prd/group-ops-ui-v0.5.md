@@ -52,7 +52,7 @@ This PRD ensures implementation clarity and provides explicit steps so another L
 
 # 3. User Stories
 
-1. User can enter email or phone to request OTP.
+1. User can enter phone number to request OTP.
 2. User can verify OTP.
 3. User receives clear error messages in their locale.
 4. User gets a clean, responsive UI experience.
@@ -66,13 +66,13 @@ This PRD ensures implementation clarity and provides explicit steps so another L
 # 4. System Behavior & Flow
 
 1. User visits `/login`
-2. Enters identifier (email or phone)
+2. Enters phone number
 3. Form validates via Zod
-4. Sends request → POST `/auth/otp` with action: "send"
+4. Sends request → POST `/auth/otp`
 5. On success → redirect to `/verify`
 6. User enters 6-digit OTP
 7. Validate form (Zod)
-8. POST `/auth/otp` with action: "verify"
+8. POST `/auth/verify`
 9. Backend sets HttpOnly auth cookie
 10. Redirect to `/home`
 
@@ -141,10 +141,10 @@ All components must be fully typed with TypeScript.
 ## 7.1 `/login`
 ### Features:
 - Card layout
-- Identifier input
-- Auto-detect phone/email
+- Phone number input
+- Phone number validation
 - Zod validation
-- API call to `/auth/otp` with action: "send"
+- API call to `/auth/otp`
 - On success redirect to `/verify`
 - On error show toast
 - **All text localized via next-intl**
@@ -162,7 +162,7 @@ All components must be fully typed with TypeScript.
 ### Features:
 - 6-digit OTP input
 - Zod validation
-- API call to `/auth/otp` with action: "verify"
+- API call to `/auth/verify`
 - Resend button w/ 30s cooldown
 - Toast error handling
 - On success: redirect to `/home`
@@ -306,8 +306,8 @@ ui/
   "auth": {
     "login": {
       "title": "Welcome back",
-      "description": "Enter your phone number or email to sign in",
-      "phoneOrEmail": "Phone number or Email",
+      "description": "Enter your phone number to sign in",
+      "phoneNumber": "Phone number",
       "sendOtp": "Send OTP",
       "otpSent": "OTP sent successfully! Check your phone."
     },

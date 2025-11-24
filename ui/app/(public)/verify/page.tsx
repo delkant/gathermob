@@ -14,19 +14,9 @@ import { FormError } from "@/components/ui/form-error";
 import { OTPInput } from "@/components/ui/otp-input";
 import { Button } from "@/components/ui/button";
 
-import { z } from "zod";
+import { createOtpSchema, type OTPFormData } from "@/lib/validation/otp";
 import { authAPI } from "@/lib/api/auth";
 import { formatPhoneForDisplay } from "@/lib/utils/phone";
-
-// Simple OTP schema without ticket
-const otpSchema = z.object({
-  code: z
-    .string()
-    .length(6, "OTP must be 6 digits")
-    .regex(/^\d{6}$/, "OTP must contain only numbers"),
-});
-
-type OTPFormData = z.infer<typeof otpSchema>;
 
 export default function VerifyPage() {
   const router = useRouter();
@@ -37,7 +27,7 @@ export default function VerifyPage() {
   const [identifier, setIdentifier] = useState<string>("");
 
   const form = useForm<OTPFormData>({
-    resolver: zodResolver(otpSchema),
+    resolver: zodResolver(createOtpSchema(t)),
     defaultValues: {
       code: "",
     },
@@ -111,9 +101,7 @@ export default function VerifyPage() {
     }
   }
 
-  const displayIdentifier = identifier.includes("@")
-    ? identifier
-    : formatPhoneForDisplay(identifier);
+  const displayIdentifier = formatPhoneForDisplay(identifier);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">

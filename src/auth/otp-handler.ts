@@ -64,8 +64,11 @@ export const handler = async (
     const body = event.body ? JSON.parse(event.body) : {};
     const path = event.rawPath;
 
+    // Remove stage prefix from path if present
+    const pathWithoutStage = path.replace(/^\/[^\/]+/, '');
+
     // Route: POST /auth/otp - Request OTP
-    if (path === '/auth/otp' && event.requestContext.http.method === 'POST') {
+    if (pathWithoutStage === '/auth/otp' && event.requestContext.http.method === 'POST') {
       const { phoneNumber } = body;
 
       // Validate input
@@ -130,7 +133,7 @@ export const handler = async (
     }
 
     // Route: POST /auth/verify - Verify OTP
-    if (path === '/auth/verify' && event.requestContext.http.method === 'POST') {
+    if (pathWithoutStage === '/auth/verify' && event.requestContext.http.method === 'POST') {
       const { phoneNumber, otp } = body;
 
       // Validate input
@@ -218,6 +221,7 @@ export const handler = async (
         const newUser = {
           _id: newUserId,
           phone: phoneNumber,
+          name: phoneNumber, // Use phone number as default name
           role: 'USER',
           createdAt: new Date(),
           updatedAt: new Date()

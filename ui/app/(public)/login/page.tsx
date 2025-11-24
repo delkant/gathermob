@@ -9,12 +9,11 @@ import { useTranslations } from "next-intl";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { ApiButton } from "@/components/ui/api-button";
 import { FormError } from "@/components/ui/form-error";
 import { PhoneInput } from "@/components/ui/phone-input";
 
-import { loginSchema, LoginFormData, isPhoneNumber } from "@/lib/validation/login";
+import { createLoginSchema, LoginFormData } from "@/lib/validation/login";
 import { authAPI } from "@/lib/api/auth";
 import { formatPhoneForAPI } from "@/lib/utils/phone";
 
@@ -25,29 +24,26 @@ export default function LoginPage() {
   const [error, setError] = useState<string>("");
 
   const form = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(createLoginSchema(t)),
     defaultValues: {
-      identifier: "",
+      phoneNumber: "",
     },
   });
-
-  const identifier = form.watch("identifier");
-  const isPhone = isPhoneNumber(identifier);
 
   async function onSubmit(data: LoginFormData) {
     setIsLoading(true);
     setError("");
 
     try {
-      await authAPI.requestOTP(data.identifier);
+      // Format phone number for API
+      const formattedPhoneNumber = formatPhoneForAPI(data.phoneNumber);
+
+      await authAPI.requestOTP(formattedPhoneNumber);
 
       toast.success(t("auth.login.otpSent"));
 
-      // Store the identifier for the verify page (format it if it's a phone number)
-      const formattedIdentifier = isPhoneNumber(data.identifier)
-        ? formatPhoneForAPI(data.identifier)
-        : data.identifier;
-      sessionStorage.setItem("otp-identifier", formattedIdentifier);
+      // Store the formatted phone number for the verify page
+      sessionStorage.setItem("otp-identifier", formattedPhoneNumber);
 
       // Redirect to verify page
       router.push("/verify");
@@ -76,27 +72,17 @@ export default function LoginPage() {
 
               <FormField
                 control={form.control}
-                name="identifier"
+                name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("auth.login.phoneOrEmail")}</FormLabel>
+                    <FormLabel>{t("auth.login.phoneNumber")}</FormLabel>
                     <FormControl>
-                      {isPhone ? (
-                        <PhoneInput
-                          {...field}
-                          placeholder={t("auth.login.phonePlaceholder")}
-                          disabled={isLoading}
-                          autoComplete="tel"
-                        />
-                      ) : (
-                        <Input
-                          {...field}
-                          type="text"
-                          placeholder={t("auth.login.emailPlaceholder")}
-                          disabled={isLoading}
-                          autoComplete="email"
-                        />
-                      )}
+                      <PhoneInput
+                        {...field}
+                        placeholder={t("auth.login.phonePlaceholder")}
+                        disabled={isLoading}
+                        autoComplete="tel"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

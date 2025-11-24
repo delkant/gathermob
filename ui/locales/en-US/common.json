@@ -6,10 +6,9 @@
   "auth": {
     "login": {
       "title": "Welcome back",
-      "description": "Enter your phone number or email to sign in",
-      "phoneOrEmail": "Phone number or Email",
-      "phonePlaceholder": "(555) 555-5555",
-      "emailPlaceholder": "email@example.com or (555) 555-5555",
+      "description": "Enter your phone number to sign in",
+      "phoneNumber": "Phone number",
+      "phonePlaceholder": "+1 (555) 555-5555",
       "sendOtp": "Send OTP",
       "sendingOtp": "Sending OTP...",
       "otpSent": "OTP sent successfully! Check your phone.",
@@ -72,8 +71,9 @@
   },
   "validation": {
     "required": "This field is required",
-    "phoneOrEmailRequired": "Phone number or email is required",
-    "invalidPhoneOrEmail": "Please enter a valid phone number or email address",
+    "phoneRequired": "Phone number is required",
+    "invalidPhone": "Please enter a valid phone number",
+    "otpRequired": "Verification code is required",
     "otpLength": "OTP must be 6 digits",
     "otpNumbers": "OTP must contain only numbers"
   },

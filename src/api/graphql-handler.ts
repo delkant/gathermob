@@ -295,33 +295,310 @@ const resolvers = {
     },
 
     // Organization mutations (stub implementations)
-    createOrganization: async (_parent: any, args: { input: any }) => {
+    createOrganization: async (_parent: any, args: { input: any }, context: any) => {
+      // Check if user is authenticated
+      if (!context.user) {
+        throw new Error('Authentication required');
+      }
+
       const client = await getMongoClient();
       const db = client.db('group-ops');
+
+      // Create organization
+      const orgId = new ObjectId();
       const org = {
+        _id: orgId,
         ...args.input,
-        _id: new Date().getTime().toString(),
+        createdBy: context.user.id,
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      await db.collection('organizations').insertOne(org);
+
+      // Create membership for the creator as OWNER
+      const membershipId = new ObjectId();
+      const membership = {
+        _id: membershipId,
+        userId: new ObjectId(context.user.id),
+        organizationId: orgId,
+        role: 'OWNER',
+        status: 'ACTIVE',
+        permissions: {
+          canManageMembers: true,
+          canManageEvents: true,
+          canManageSettings: true,
+          canDelete: true
+        },
+        joinedAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Insert both in a transaction
+      const session = client.startSession();
+      try {
+        await session.withTransaction(async () => {
+          await db.collection('organizations').insertOne(org, { session });
+          await db.collection('memberships').insertOne(membership, { session });
+        });
+      } finally {
+        await session.endSession();
+      }
+
       return org;
     },
 
-    updateOrganization: async (_parent: any, args: { id: string; input: any }) => {
-      try {
-        const client = await getMongoClient();
-        const db = client.db('group-ops');
-        const objectId = new ObjectId(args.id);
-        await db.collection('organizations').updateOne(
-          { _id: objectId },
-          { $set: { ...args.input, updatedAt: new Date() } }
-        );
-        return await db.collection('organizations').findOne({ _id: objectId });
-      } catch (error) {
-        console.error('Error updating organization:', error);
-        return null;
+    updateOrganization: async (_parent: any, args: { id: string; input: any }, context: any) => {
+      if (!context.user) {
+        throw new Error('Authentication required');
       }
+
+      const client = await getMongoClient();
+      const db = client.db('group-ops');
+      const orgId = new ObjectId(args.id);
+
+      // Check if user is admin/owner of the organization
+      const membership = await db.collection('memberships').findOne({
+        userId: new ObjectId(context.user.id),
+        organizationId: orgId,
+        role: { $in: ['ADMIN', 'OWNER'] },
+        status: 'ACTIVE'
+      });
+
+      if (!membership) {
+        throw new Error('You must be an admin to update this organization');
+      }
+
+      await db.collection('organizations').updateOne(
+        { _id: orgId },
+        { $set: { ...args.input, updatedAt: new Date() } }
+      );
+
+      return await db.collection('organizations').findOne({ _id: orgId });
+    },
+
+    deleteOrganization: async (_parent: any, args: { id: string }, context: any) => {
+      if (!context.user) {
+        throw new Error('Authentication required');
+      }
+
+      const client = await getMongoClient();
+      const db = client.db('group-ops');
+      const orgId = new ObjectId(args.id);
+
+      // Only OWNER can delete the organization
+      const membership = await db.collection('memberships').findOne({
+        userId: new ObjectId(context.user.id),
+        organizationId: orgId,
+        role: 'OWNER',
+        status: 'ACTIVE'
+      });
+
+      if (!membership) {
+        throw new Error('Only the owner can delete this organization');
+      }
+
+      // Delete in transaction
+      const session = client.startSession();
+      try {
+        await session.withTransaction(async () => {
+          // Delete all memberships
+          await db.collection('memberships').deleteMany(
+            { organizationId: orgId },
+            { session }
+          );
+          // Delete all events
+          await db.collection('events').deleteMany(
+            { organizationId: orgId },
+            { session }
+          );
+          // Delete organization
+          await db.collection('organizations').deleteOne(
+            { _id: orgId },
+            { session }
+          );
+        });
+      } finally {
+        await session.endSession();
+      }
+
+      return true;
+    },
+
+    // Membership mutations
+    inviteMember: async (_parent: any, args: { organizationId: string; userId: string; role: string }, context: any) => {
+      if (!context.user) {
+        throw new Error('Authentication required');
+      }
+
+      const client = await getMongoClient();
+      const db = client.db('group-ops');
+      const orgId = new ObjectId(args.organizationId);
+
+      // Check if user is admin/owner
+      const adminMembership = await db.collection('memberships').findOne({
+        userId: new ObjectId(context.user.id),
+        organizationId: orgId,
+        role: { $in: ['ADMIN', 'OWNER'] },
+        status: 'ACTIVE'
+      });
+
+      if (!adminMembership) {
+        throw new Error('You must be an admin to invite members');
+      }
+
+      // Check if membership already exists
+      const existingMembership = await db.collection('memberships').findOne({
+        userId: new ObjectId(args.userId),
+        organizationId: orgId
+      });
+
+      if (existingMembership) {
+        throw new Error('User is already a member of this organization');
+      }
+
+      // Create new membership
+      const membershipId = new ObjectId();
+      const membership = {
+        _id: membershipId,
+        userId: new ObjectId(args.userId),
+        organizationId: orgId,
+        role: args.role,
+        status: 'PENDING',
+        invitedBy: new ObjectId(context.user.id),
+        joinedAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      await db.collection('memberships').insertOne(membership);
+      return membership;
+    },
+
+    updateMemberRole: async (_parent: any, args: { membershipId: string; role: string }, context: any) => {
+      if (!context.user) {
+        throw new Error('Authentication required');
+      }
+
+      const client = await getMongoClient();
+      const db = client.db('group-ops');
+      const membershipId = new ObjectId(args.membershipId);
+
+      // Get the membership to update
+      const targetMembership = await db.collection('memberships').findOne({ _id: membershipId });
+      if (!targetMembership) {
+        throw new Error('Membership not found');
+      }
+
+      // Check if user is admin/owner
+      const adminMembership = await db.collection('memberships').findOne({
+        userId: new ObjectId(context.user.id),
+        organizationId: targetMembership.organizationId,
+        role: { $in: ['ADMIN', 'OWNER'] },
+        status: 'ACTIVE'
+      });
+
+      if (!adminMembership) {
+        throw new Error('You must be an admin to change member roles');
+      }
+
+      // Prevent removing the last owner
+      if (targetMembership.role === 'OWNER' && args.role !== 'OWNER') {
+        const ownerCount = await db.collection('memberships').countDocuments({
+          organizationId: targetMembership.organizationId,
+          role: 'OWNER',
+          status: 'ACTIVE'
+        });
+
+        if (ownerCount <= 1) {
+          throw new Error('Organization must have at least one owner');
+        }
+      }
+
+      await db.collection('memberships').updateOne(
+        { _id: membershipId },
+        { $set: { role: args.role, updatedAt: new Date() } }
+      );
+
+      return await db.collection('memberships').findOne({ _id: membershipId });
+    },
+
+    removeMember: async (_parent: any, args: { membershipId: string }, context: any) => {
+      if (!context.user) {
+        throw new Error('Authentication required');
+      }
+
+      const client = await getMongoClient();
+      const db = client.db('group-ops');
+      const membershipId = new ObjectId(args.membershipId);
+
+      // Get the membership to remove
+      const targetMembership = await db.collection('memberships').findOne({ _id: membershipId });
+      if (!targetMembership) {
+        throw new Error('Membership not found');
+      }
+
+      // Check if user is admin/owner
+      const adminMembership = await db.collection('memberships').findOne({
+        userId: new ObjectId(context.user.id),
+        organizationId: targetMembership.organizationId,
+        role: { $in: ['ADMIN', 'OWNER'] },
+        status: 'ACTIVE'
+      });
+
+      if (!adminMembership) {
+        throw new Error('You must be an admin to remove members');
+      }
+
+      // Prevent removing the last owner
+      if (targetMembership.role === 'OWNER') {
+        const ownerCount = await db.collection('memberships').countDocuments({
+          organizationId: targetMembership.organizationId,
+          role: 'OWNER',
+          status: 'ACTIVE'
+        });
+
+        if (ownerCount <= 1) {
+          throw new Error('Cannot remove the last owner of the organization');
+        }
+      }
+
+      await db.collection('memberships').deleteOne({ _id: membershipId });
+      return true;
+    },
+
+    leaveOrganization: async (_parent: any, args: { organizationId: string }, context: any) => {
+      if (!context.user) {
+        throw new Error('Authentication required');
+      }
+
+      const client = await getMongoClient();
+      const db = client.db('group-ops');
+      const orgId = new ObjectId(args.organizationId);
+
+      // Find user's membership
+      const membership = await db.collection('memberships').findOne({
+        userId: new ObjectId(context.user.id),
+        organizationId: orgId,
+        status: 'ACTIVE'
+      });
+
+      if (!membership) {
+        throw new Error('You are not a member of this organization');
+      }
+
+      // Prevent the last owner from leaving
+      if (membership.role === 'OWNER') {
+        const ownerCount = await db.collection('memberships').countDocuments({
+          organizationId: orgId,
+          role: 'OWNER',
+          status: 'ACTIVE'
+        });
+
+        if (ownerCount <= 1) {
+          throw new Error('The last owner cannot leave the organization. Transfer ownership or delete the organization instead.');
+        }
+      }
+
+      await db.collection('memberships').deleteOne({ _id: membership._id });
+      return true;
     },
 
     // Event mutations (stub implementations)
