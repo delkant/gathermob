@@ -53,7 +53,7 @@ export default function OrganizationsPage() {
     );
   }
 
-  const organizations = data?.myOrganizations || [];
+  const organizations = data?.myOrganizations?.edges?.map((edge: any) => edge.node) || [];
 
   return (
     <div className="container mx-auto p-6">

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation } from '@apollo/client';
+import { gql, useMutation } from '@apollo/client';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
 
@@ -59,7 +59,7 @@ export function CreateOrganizationDialog({
   const [error, setError] = useState<string>('');
 
   const [createOrganization, { loading }] = useMutation(CREATE_ORGANIZATION, {
-    onCompleted: (data) => {
+    onCompleted: (data: any) => {
       toast.success('Organization created successfully!');
       setOpen(false);
 
@@ -75,7 +75,7 @@ export function CreateOrganizationDialog({
       // Navigate to the new organization
       router.push(`/organizations/${data.createOrganization.slug}`);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       const message = error.message || 'Failed to create organization';
       setError(message);
       toast.error(message);
